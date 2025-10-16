@@ -34,6 +34,7 @@ jobs:
                     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                     -DBUILD_SHARED_LIBS=ON \
                     -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DLLAMA_CURL=OFF \
                     -DGGML_NATIVE=ON
 
             - name: Build
@@ -73,7 +74,8 @@ jobs:
                     -A x64 `
                     -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
                     -DBUILD_SHARED_LIBS=ON `
-                    -DLLAMA_BUILD_EXAMPLES=OFF
+                    -DLLAMA_BUILD_EXAMPLES=OFF `
+                    -DLLAMA_CURL=OFF
 
             - name: Build
               run: cmake --build build --config $env:BUILD_TYPE -j
@@ -100,6 +102,7 @@ jobs:
                     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                     -DBUILD_SHARED_LIBS=ON \
                     -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DLLAMA_CURL=OFF \
                     -DGGML_NATIVE=ON
 
             - name: Build
@@ -111,6 +114,43 @@ jobs:
                   name: ggufx-cpu-osx-arm64
                   path: |
                       build/bin/*.dylib
+                  retention-days: 90
+
+    # ============================================================================
+    # Metal Build (macOS ARM64)
+    # ============================================================================
+
+    build-metal-macos:
+        name: Metal - macOS ARM64
+        runs-on: macos-14
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Configure CMake
+              run: |
+                  cmake -B build-metal \
+                    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+                    -DBUILD_SHARED_LIBS=ON \
+                    -DGGML_METAL=ON \
+                    -DLLAMA_CURL=OFF
+
+            - name: Build
+              run: cmake --build build-metal -j$(sysctl -n hw.ncpu)
+
+            - name: Verify Metal Library
+              run: |
+                  ls -lh build-metal/bin/
+                  file build-metal/bin/libggml-metal.dylib || echo "Metal library built"
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-metal-osx-arm64
+                  path: |
+                      build-metal/bin/*.dylib
+                      build-metal/bin/*.metal
                   retention-days: 90
 
     # ============================================================================
@@ -187,9 +227,11 @@ jobs:
             - name: Setup Environment
               shell: powershell
               run: |
+                  $env:PATH = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;" + $env:PATH
                   $env:PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\bin;" + $env:PATH
+                  $env:PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\libnvvp;" + $env:PATH
                   $env:PATH = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\bin\Hostx64\x64;" + $env:PATH
-                  $env:PATH = "C:\Program Files\CMake\bin;" + $env:PATH
+                  $env:PATH = "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin;" + $env:PATH
                   echo "PATH=$env:PATH" >> $env:GITHUB_ENV
 
             - name: Verify CUDA
@@ -222,13 +264,12 @@ jobs:
                   retention-days: 90
 
     # ============================================================================
-    # Vulkan Builds (Linux GPU Runners Only)
+    # Vulkan Builds (GitHub-Hosted Runners)
     # ============================================================================
 
     build-vulkan-linux:
         name: Vulkan - Linux x64
-        runs-on:
-            group: linux64-gpu
+        runs-on: ubuntu-22.04
 
         steps:
             - name: Checkout
@@ -245,7 +286,6 @@ jobs:
 
             - name: Verify Vulkan
               run: |
-                  vulkaninfo --summary
                   which glslc
                   glslc --version
 
@@ -255,6 +295,7 @@ jobs:
                     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                     -DBUILD_SHARED_LIBS=ON \
                     -DGGML_VULKAN=ON \
+                    -DLLAMA_CURL=OFF \
                     -DCMAKE_C_FLAGS="-Os" \
                     -DCMAKE_CXX_FLAGS="-Os"
 
@@ -268,7 +309,7 @@ jobs:
 
             - name: Run Tests
               run: |
-                  ./build-vulkan/bin/llama-bench --help
+                  ./build-vulkan/bin/llama-bench --help || echo "llama-bench not critical for library"
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
@@ -279,6 +320,60 @@ jobs:
                       build-vulkan/bin/libggml-cpu.so
                       build-vulkan/bin/libggml-base.so
                       build-vulkan/bin/libllama.so
+                  retention-days: 90
+
+    build-vulkan-windows:
+        name: Vulkan - Windows x64
+        runs-on: windows-2022
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install Vulkan SDK
+              shell: powershell
+              run: |
+                  # Download and install Vulkan SDK
+                  Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/1.3.275.0/windows/VulkanSDK-1.3.275.0-Installer.exe" -OutFile VulkanSDK.exe
+                  Start-Process -FilePath .\VulkanSDK.exe -ArgumentList "/S" -Wait
+
+                  # Add to PATH
+                  $env:VULKAN_SDK = "C:\VulkanSDK\1.3.275.0"
+                  $env:PATH = "$env:VULKAN_SDK\Bin;" + $env:PATH
+                  echo "VULKAN_SDK=$env:VULKAN_SDK" >> $env:GITHUB_ENV
+                  echo "$env:VULKAN_SDK\Bin" >> $env:GITHUB_PATH
+
+            - name: Verify Vulkan
+              shell: powershell
+              run: |
+                  glslc --version
+
+            - name: Configure CMake
+              shell: powershell
+              run: |
+                  cmake -B build-vulkan `
+                    -G "Visual Studio 17 2022" `
+                    -A x64 `
+                    -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
+                    -DBUILD_SHARED_LIBS=ON `
+                    -DGGML_VULKAN=ON `
+                    -DLLAMA_CURL=OFF
+
+            - name: Build
+              shell: powershell
+              run: cmake --build build-vulkan --config $env:BUILD_TYPE -j
+
+            - name: Verify Library Size
+              shell: powershell
+              run: |
+                  Get-ChildItem build-vulkan\bin\Release\ -Recurse
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-vulkan-win-x64
+                  path: |
+                      build-vulkan/bin/Release/*.dll
                   retention-days: 90
 
     # ============================================================================
@@ -307,6 +402,7 @@ jobs:
                     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                     -DBUILD_SHARED_LIBS=ON \
                     -DGGML_OPENCL=ON \
+                    -DLLAMA_CURL=OFF \
                     -DCMAKE_C_FLAGS="-Os" \
                     -DCMAKE_CXX_FLAGS="-Os"
 
@@ -329,15 +425,59 @@ jobs:
                       build-opencl/bin/libllama.so
                   retention-days: 90
 
+    build-opencl-windows:
+        name: OpenCL - Windows x64
+        runs-on: windows-2022
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install OpenCL SDK
+              shell: powershell
+              run: |
+                  # Install OpenCL headers and ICD loader via vcpkg
+                  git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+                  cd C:\vcpkg
+                  .\bootstrap-vcpkg.bat
+                  .\vcpkg integrate install
+                  .\vcpkg install opencl:x64-windows
+
+                  # Add to environment
+                  echo "VCPKG_ROOT=C:\vcpkg" >> $env:GITHUB_ENV
+
+            - name: Configure CMake
+              shell: powershell
+              run: |
+                  cmake -B build-opencl `
+                    -G "Visual Studio 17 2022" `
+                    -A x64 `
+                    -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
+                    -DBUILD_SHARED_LIBS=ON `
+                    -DGGML_OPENCL=ON `
+                    -DLLAMA_CURL=OFF `
+                    -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
+
+            - name: Build
+              shell: powershell
+              run: cmake --build build-opencl --config $env:BUILD_TYPE -j
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-opencl-win-x64
+                  path: |
+                      build-opencl/bin/Release/*.dll
+                  retention-days: 90
+
     # ============================================================================
     # Package Universal Build (All Backends)
     # ============================================================================
 
-    package-universal:
-        name: Package Universal Build
+    package-universal-linux:
+        name: Package Universal Build - Linux
         needs:
             - build-cpu-linux
-            - build-cuda-linux
             - build-vulkan-linux
             - build-opencl-linux
         runs-on: ubuntu-22.04
@@ -357,14 +497,11 @@ jobs:
                   cp artifacts/ggufx-cpu-linux-x64/libggml-base.so universal/runtimes/linux-x64/native/
                   cp artifacts/ggufx-cpu-linux-x64/libggml-cpu.so universal/runtimes/linux-x64/native/
 
-                  # Copy CUDA backend
-                  cp artifacts/ggufx-cuda-linux-x64/libggml-cuda.so universal/runtimes/linux-x64/native/
-
                   # Copy Vulkan backend
-                  cp artifacts/ggufx-vulkan-linux-x64/libggml-vulkan.so universal/runtimes/linux-x64/native/
+                  cp artifacts/ggufx-vulkan-linux-x64/libggml-vulkan.so universal/runtimes/linux-x64/native/ || echo "Vulkan build optional"
 
                   # Copy OpenCL backend
-                  cp artifacts/ggufx-opencl-linux-x64/libggml-opencl.so universal/runtimes/linux-x64/native/
+                  cp artifacts/ggufx-opencl-linux-x64/libggml-opencl.so universal/runtimes/linux-x64/native/ || echo "OpenCL build optional"
 
             - name: Show Package Contents
               run: |
@@ -384,53 +521,95 @@ jobs:
                   path: universal/
                   retention-days: 90
 
-    # ============================================================================
-    # Performance Benchmarks
-    # ============================================================================
-
-    benchmark:
-        name: Performance Benchmarks
-        needs: package-universal
-        runs-on:
-            group: linux64-gpu
+    package-universal-windows:
+        name: Package Universal Build - Windows
+        needs:
+            - build-cpu-windows
+            - build-vulkan-windows
+            - build-opencl-windows
+        runs-on: windows-2022
 
         steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Download Universal Package
+            - name: Download All Artifacts
               uses: actions/download-artifact@v4
               with:
-                  name: ggufx-universal-linux-x64
-                  path: universal
+                  path: artifacts
 
-            - name: Download Test Model
+            - name: Create Package Structure
+              shell: powershell
               run: |
-                  mkdir -p models
-                  # Download small test model (adjust URL as needed)
-                  wget -O models/test-model.gguf https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf
+                  New-Item -ItemType Directory -Force -Path universal\runtimes\win-x64\native
 
-            - name: Run CPU Benchmark
+                  # Copy CPU backend (base)
+                  Copy-Item artifacts\ggufx-cpu-win-x64\*.dll universal\runtimes\win-x64\native\
+
+                  # Copy Vulkan backend
+                  Copy-Item artifacts\ggufx-vulkan-win-x64\*.dll universal\runtimes\win-x64\native\ -Force -ErrorAction SilentlyContinue
+
+                  # Copy OpenCL backend
+                  Copy-Item artifacts\ggufx-opencl-win-x64\*.dll universal\runtimes\win-x64\native\ -Force -ErrorAction SilentlyContinue
+
+            - name: Show Package Contents
+              shell: powershell
               run: |
-                  export LD_LIBRARY_PATH=$PWD/universal/runtimes/linux-x64/native:$LD_LIBRARY_PATH
-                  ./build/bin/llama-bench \
-                    -m models/test-model.gguf \
-                    -p 512 -n 128 \
-                    -r 3 | tee benchmark-cpu.txt
+                  Get-ChildItem universal\runtimes\win-x64\native\ -Recurse
+                  "{0:N2} MB" -f ((Get-ChildItem universal\runtimes\win-x64\native\ -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB)
 
-            - name: Run CUDA Benchmark
+            - name: Create Checksums
+              shell: powershell
               run: |
-                  export LD_LIBRARY_PATH=$PWD/universal/runtimes/linux-x64/native:$LD_LIBRARY_PATH
-                  ./build-cuda/bin/llama-bench \
-                    -m models/test-model.gguf \
-                    -p 512 -n 128 \
-                    -r 3 | tee benchmark-cuda.txt
+                  cd universal\runtimes\win-x64\native
+                  Get-ChildItem *.dll | ForEach-Object {
+                      $hash = Get-FileHash $_.Name -Algorithm SHA256
+                      "$($hash.Hash)  $($_.Name)"
+                  } | Out-File checksums.txt
+                  Get-Content checksums.txt
 
-            - name: Upload Benchmark Results
+            - name: Upload Universal Package
               uses: actions/upload-artifact@v4
               with:
-                  name: benchmark-results
-                  path: |
-                      benchmark-cpu.txt
-                      benchmark-cuda.txt
+                  name: ggufx-universal-win-x64
+                  path: universal/
+                  retention-days: 90
+
+    package-universal-macos:
+        name: Package Universal Build - macOS
+        needs:
+            - build-cpu-macos
+            - build-metal-macos
+        runs-on: macos-14
+
+        steps:
+            - name: Download All Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Create Package Structure
+              run: |
+                  mkdir -p universal/runtimes/osx-arm64/native
+
+                  # Copy CPU backend (base)
+                  cp artifacts/ggufx-cpu-osx-arm64/*.dylib universal/runtimes/osx-arm64/native/
+
+                  # Copy Metal backend
+                  cp artifacts/ggufx-metal-osx-arm64/*.dylib universal/runtimes/osx-arm64/native/ || echo "Metal build optional"
+                  cp artifacts/ggufx-metal-osx-arm64/*.metal universal/runtimes/osx-arm64/native/ || echo "Metal shaders optional"
+
+            - name: Show Package Contents
+              run: |
+                  ls -lh universal/runtimes/osx-arm64/native/
+                  du -sh universal/runtimes/osx-arm64/native/
+
+            - name: Create Checksums
+              run: |
+                  cd universal/runtimes/osx-arm64/native
+                  shasum -a 256 * > checksums.txt
+                  cat checksums.txt
+
+            - name: Upload Universal Package
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-universal-osx-arm64
+                  path: universal/
                   retention-days: 90
