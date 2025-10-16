@@ -224,6 +224,11 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
+            - name: Allow PowerShell script execution
+              shell: powershell
+              run: |
+                  Set-ExecutionPolicy Unrestricted -Scope Process -Force
+
             - name: Setup Environment
               shell: powershell
               run: |
@@ -278,16 +283,19 @@ jobs:
             - name: Install Vulkan Dependencies
               run: |
                   sudo apt update
-                  sudo apt install -y \
-                    libvulkan-dev \
-                    vulkan-tools \
-                    glslc \
-                    libshaderc-dev
+                  sudo apt install -y libvulkan-dev vulkan-tools wget
+
+                  # Download and install Vulkan SDK for glslc and shaderc
+                  wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+                  sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
+                  sudo apt update
+                  sudo apt install -y vulkan-sdk
 
             - name: Verify Vulkan
               run: |
                   which glslc
                   glslc --version
+                  vulkaninfo --summary || echo "vulkaninfo requires GPU runtime"
 
             - name: Configure CMake
               run: |
@@ -352,8 +360,7 @@ jobs:
                           $ProgressPreference = 'SilentlyContinue'
                           Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/1.3.275.0/windows/VulkanSDK-1.3.275.0-Installer.exe" `
                               -OutFile VulkanSDK.exe `
-                              -TimeoutSec 300 `
-                              -MaximumRetryCount 2
+                              -TimeoutSec 300
 
                           if (Test-Path VulkanSDK.exe) {
                               $fileSize = (Get-Item VulkanSDK.exe).Length / 1MB
