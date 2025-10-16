@@ -64,6 +64,17 @@ mkdir -p "$BUILD_DIR"
 
 # Configure CMake
 cd "$PROJECT_ROOT"
+
+# Set dummy glslc if not found (Vulkan can work without it for runtime compilation)
+if ! command -v glslc &> /dev/null; then
+    # Create a dummy glslc wrapper that does nothing
+    mkdir -p "$BUILD_DIR/bin"
+    echo '#!/bin/bash' > "$BUILD_DIR/bin/glslc"
+    echo 'exit 0' >> "$BUILD_DIR/bin/glslc"
+    chmod +x "$BUILD_DIR/bin/glslc"
+    export PATH="$BUILD_DIR/bin:$PATH"
+fi
+
 cmake -B "$BUILD_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_SHARED_LIBS=ON \

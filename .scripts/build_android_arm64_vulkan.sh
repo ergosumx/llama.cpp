@@ -85,6 +85,14 @@ mkdir -p "$BUILD_DIR"
 
 # Configure CMake with Android toolchain
 cd "$PROJECT_ROOT"
+
+# Create dummy glslc for CMake detection (Android uses runtime compilation)
+mkdir -p "$BUILD_DIR/bin"
+echo '#!/bin/bash' > "$BUILD_DIR/bin/glslc"
+echo 'exit 0' >> "$BUILD_DIR/bin/glslc"
+chmod +x "$BUILD_DIR/bin/glslc"
+export PATH="$BUILD_DIR/bin:$PATH"
+
 cmake -B "$BUILD_DIR" \
     -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
     -DANDROID_ABI="$ANDROID_ABI" \
