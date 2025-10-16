@@ -86,12 +86,25 @@ mkdir -p "$BUILD_DIR"
 # Configure CMake with Android toolchain
 cd "$PROJECT_ROOT"
 
-# Create dummy glslc for CMake detection (Android uses runtime compilation)
-mkdir -p "$BUILD_DIR/bin"
-echo '#!/bin/bash' > "$BUILD_DIR/bin/glslc"
-echo 'exit 0' >> "$BUILD_DIR/bin/glslc"
-chmod +x "$BUILD_DIR/bin/glslc"
-export PATH="$BUILD_DIR/bin:$PATH"
+# Check if glslc is available (needed for shader compilation)
+if command -v glslc &> /dev/null; then
+    echo "Found glslc: $(which glslc)"
+    glslc --version
+    echo "Using system glslc for shader compilation"
+else
+    echo "WARNING: glslc not found!"
+    echo "For CI builds, ensure Vulkan SDK is installed in workflow."
+    echo "For local builds, install with:"
+    echo "  sudo apt-get install -y libvulkan-dev glslang-tools shaderc"
+    echo ""
+    echo "Creating dummy glslc (may cause build failures)..."
+    # Create dummy glslc as fallback (will likely fail during shader compilation)
+    mkdir -p "$BUILD_DIR/bin"
+    echo '#!/bin/bash' > "$BUILD_DIR/bin/glslc"
+    echo 'exit 0' >> "$BUILD_DIR/bin/glslc"
+    chmod +x "$BUILD_DIR/bin/glslc"
+    export PATH="$BUILD_DIR/bin:$PATH"
+fi
 
 cmake -B "$BUILD_DIR" \
     -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \

@@ -139,6 +139,23 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
+            - name: Install Vulkan SDK
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y \
+                      libvulkan-dev \
+                      vulkan-tools \
+                      glslang-tools \
+                      spirv-tools \
+                      shaderc
+
+            - name: Verify Vulkan Installation
+              run: |
+                  echo "Vulkan packages installed:"
+                  dpkg -l | grep -E 'vulkan|glslang|shaderc'
+                  echo "glslc location: $(which glslc || echo 'not found')"
+                  glslc --version || echo "glslc not available"
+
             - name: Build
               run: ./.scripts/build_linux_vulkan.sh
 
@@ -156,6 +173,23 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v4
+
+            - name: Install Vulkan SDK
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y \
+                      libvulkan-dev \
+                      vulkan-tools \
+                      glslang-tools \
+                      spirv-tools \
+                      shaderc
+
+            - name: Verify Vulkan Installation
+              run: |
+                  echo "Vulkan packages installed:"
+                  dpkg -l | grep -E 'vulkan|glslang|shaderc'
+                  echo "glslc location: $(which glslc || echo 'not found')"
+                  glslc --version || echo "glslc not available"
 
             - name: Build
               run: ./.scripts/build_linux_arm64_vulkan.sh
@@ -178,6 +212,19 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v4
+
+            - name: Install Vulkan SDK (for shader compilation)
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y \
+                      libvulkan-dev \
+                      glslang-tools \
+                      shaderc
+
+            - name: Verify glslc Installation
+              run: |
+                  echo "glslc location: $(which glslc)"
+                  glslc --version
 
             - name: Setup Android NDK
               run: |

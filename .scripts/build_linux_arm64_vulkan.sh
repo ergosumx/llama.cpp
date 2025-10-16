@@ -26,26 +26,12 @@ echo "==========================================================================
 
 # Verify Vulkan installation
 echo "Verifying Vulkan installation..."
-if ! command -v glslc &> /dev/null; then
-    echo "WARNING: glslc not found. Installing Vulkan development packages..."
-    # For ARM64, use Ubuntu's native Vulkan packages instead of LunarG repo
-    sudo apt-get update
-    sudo apt-get install -y \
-        libvulkan-dev \
-        vulkan-tools \
-        glslang-tools \
-        spirv-tools \
-        shaderc || true
 
-    # Try to locate glslc (may be in non-standard location)
-    if [ -f "/usr/bin/glslc" ]; then
-        export PATH="/usr/bin:$PATH"
-    elif [ -f "/usr/local/bin/glslc" ]; then
-        export PATH="/usr/local/bin:$PATH"
-    fi
-
-    echo "Installed Vulkan packages:"
-    dpkg -l | grep -E 'vulkan|glslang|shaderc' || true
+# Try to locate glslc in standard locations
+if [ -f "/usr/bin/glslc" ]; then
+    export PATH="/usr/bin:$PATH"
+elif [ -f "/usr/local/bin/glslc" ]; then
+    export PATH="/usr/local/bin:$PATH"
 fi
 
 if command -v glslc &> /dev/null; then
@@ -55,7 +41,12 @@ elif command -v glslangValidator &> /dev/null; then
     echo "Found glslangValidator: $(which glslangValidator)"
     glslangValidator --version
 else
-    echo "WARNING: Neither glslc nor glslangValidator found. Using runtime shader compilation."
+    echo "WARNING: Neither glslc nor glslangValidator found."
+    echo "If running in CI, ensure Vulkan packages are installed in workflow."
+    echo "If running locally, install with:"
+    echo "  sudo apt-get install -y libvulkan-dev glslang-tools shaderc"
+    echo ""
+    echo "Proceeding with dummy glslc (runtime shader compilation will be used)..."
 fi
 
 # Clean previous build
