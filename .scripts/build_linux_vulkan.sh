@@ -35,7 +35,7 @@ if ! command -v glslc &> /dev/null; then
         vulkan-tools \
         glslang-tools \
         spirv-tools
-    
+
     echo "Installed Vulkan packages:"
     dpkg -l | grep vulkan || true
     echo "glslc location: $(which glslc || echo 'not found in PATH')"
@@ -61,6 +61,7 @@ cmake -B "$BUILD_DIR" \
     -DLLAMA_BUILD_SERVER=OFF \
     -DGGML_BUILD_TESTS=OFF \
     -DGGML_BUILD_EXAMPLES=OFF \
+    -DGGML_BUILD_TOOLS=OFF \
     -DGGML_VULKAN=ON \
     -DLLAMA_CURL=OFF \
     -DCMAKE_C_FLAGS="-Os" \

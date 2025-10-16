@@ -18,11 +18,19 @@ BUILD_DIR="$PROJECT_ROOT/build-android-arm64-vulkan"
 PUBLISH_DIR="$PROJECT_ROOT/.publish/android-arm64/vulkan"
 
 # Android NDK path (default location or from environment)
+# Remove /wrap.sh suffix if present (GitHub Actions artifact issue)
+ANDROID_NDK="${ANDROID_NDK%/wrap.sh}"
 ANDROID_NDK="${ANDROID_NDK:-$HOME/Android/Sdk/ndk}"
-if [ -d "$ANDROID_NDK" ]; then
+
+# Check if NDK directory downloaded to project root
+if [ -d "$PROJECT_ROOT/android-ndk-r26d" ]; then
+    ANDROID_NDK="$PROJECT_ROOT/android-ndk-r26d"
+elif [ -d "$ANDROID_NDK" ]; then
     # Find latest NDK version
     ANDROID_NDK_VERSION=$(ls -1 "$ANDROID_NDK" | sort -V | tail -1)
-    ANDROID_NDK="$ANDROID_NDK/$ANDROID_NDK_VERSION"
+    if [ -n "$ANDROID_NDK_VERSION" ] && [ -d "$ANDROID_NDK/$ANDROID_NDK_VERSION" ]; then
+        ANDROID_NDK="$ANDROID_NDK/$ANDROID_NDK_VERSION"
+    fi
 fi
 
 # Fallback to common NDK locations
@@ -89,6 +97,7 @@ cmake -B "$BUILD_DIR" \
     -DLLAMA_BUILD_SERVER=OFF \
     -DGGML_BUILD_TESTS=OFF \
     -DGGML_BUILD_EXAMPLES=OFF \
+    -DGGML_BUILD_TOOLS=OFF \
     -DGGML_VULKAN=ON \
     -DLLAMA_CURL=OFF
 

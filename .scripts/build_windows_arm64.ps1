@@ -29,11 +29,12 @@ if (Test-Path $BuildDir) {
 }
 New-Item -ItemType Directory -Path $BuildDir | Out-Null
 
-# Configure CMake
+# Configure CMake with Clang (MSVC not supported for ARM64)
 Set-Location $ProjectRoot
 cmake -B $BuildDir `
     -G "Visual Studio 17 2022" `
     -A ARM64 `
+    -T ClangCL `
     -DCMAKE_BUILD_TYPE=Release `
     -DBUILD_SHARED_LIBS=ON `
     -DLLAMA_BUILD_TESTS=OFF `
@@ -41,6 +42,7 @@ cmake -B $BuildDir `
     -DLLAMA_BUILD_SERVER=OFF `
     -DGGML_BUILD_TESTS=OFF `
     -DGGML_BUILD_EXAMPLES=OFF `
+    -DGGML_BUILD_TOOLS=OFF `
     -DLLAMA_CURL=OFF
 
 # Build
