@@ -188,6 +188,7 @@ jobs:
                     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                     -DBUILD_SHARED_LIBS=ON \
                     -DGGML_CUDA=ON \
+                    -DLLAMA_CURL=OFF \
                     -DCMAKE_CUDA_ARCHITECTURES="61;70;75;80;86;89;90" \
                     -DCMAKE_C_FLAGS="-Os" \
                     -DCMAKE_CXX_FLAGS="-Os"
@@ -254,6 +255,7 @@ jobs:
                     -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
                     -DBUILD_SHARED_LIBS=ON `
                     -DGGML_CUDA=ON `
+                    -DLLAMA_CURL=OFF `
                     -DCMAKE_CUDA_ARCHITECTURES="61;70;75;80;86;89;90"
 
             - name: Build
