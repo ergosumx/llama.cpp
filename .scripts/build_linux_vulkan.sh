@@ -44,7 +44,7 @@ else
     echo "WARNING: Neither glslc nor glslangValidator found."
     echo "If running in CI, ensure Vulkan packages are installed in workflow."
     echo "If running locally, install with:"
-    echo "  sudo apt-get install -y libvulkan-dev glslang-tools shaderc"
+    echo "  sudo apt-get install -y libvulkan-dev glslang-tools libshaderc-dev"
     echo ""
     echo "Proceeding with dummy glslc (runtime shader compilation will be used)..."
 fi
