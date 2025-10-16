@@ -32,7 +32,11 @@ jobs:
                   cmake -B build \
                     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                     -DBUILD_SHARED_LIBS=ON \
+                    -DLLAMA_BUILD_TESTS=OFF \
                     -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DLLAMA_BUILD_SERVER=OFF \
+                    -DGGML_BUILD_TESTS=OFF \
+                    -DGGML_BUILD_EXAMPLES=OFF \
                     -DLLAMA_CURL=OFF \
                     -DGGML_NATIVE=ON
 
@@ -73,7 +77,11 @@ jobs:
                     -A x64 `
                     -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
                     -DBUILD_SHARED_LIBS=ON `
+                    -DLLAMA_BUILD_TESTS=OFF `
                     -DLLAMA_BUILD_EXAMPLES=OFF `
+                    -DLLAMA_BUILD_SERVER=OFF `
+                    -DGGML_BUILD_TESTS=OFF `
+                    -DGGML_BUILD_EXAMPLES=OFF `
                     -DLLAMA_CURL=OFF
 
             - name: Build
@@ -100,7 +108,11 @@ jobs:
                   cmake -B build \
                     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                     -DBUILD_SHARED_LIBS=ON \
+                    -DLLAMA_BUILD_TESTS=OFF \
                     -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DLLAMA_BUILD_SERVER=OFF \
+                    -DGGML_BUILD_TESTS=OFF \
+                    -DGGML_BUILD_EXAMPLES=OFF \
                     -DLLAMA_CURL=OFF \
                     -DGGML_NATIVE=ON
 
@@ -132,6 +144,11 @@ jobs:
                   cmake -B build-metal \
                     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                     -DBUILD_SHARED_LIBS=ON \
+                    -DLLAMA_BUILD_TESTS=OFF \
+                    -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DLLAMA_BUILD_SERVER=OFF \
+                    -DGGML_BUILD_TESTS=OFF \
+                    -DGGML_BUILD_EXAMPLES=OFF \
                     -DGGML_METAL=ON \
                     -DLLAMA_CURL=OFF
 
@@ -186,6 +203,11 @@ jobs:
                   cmake -B build-cuda \
                     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                     -DBUILD_SHARED_LIBS=ON \
+                    -DLLAMA_BUILD_TESTS=OFF \
+                    -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DLLAMA_BUILD_SERVER=OFF \
+                    -DGGML_BUILD_TESTS=OFF \
+                    -DGGML_BUILD_EXAMPLES=OFF \
                     -DGGML_CUDA=ON \
                     -DLLAMA_CURL=OFF \
                     -DCMAKE_CUDA_ARCHITECTURES="61;70;75;80;86;89;90" \
@@ -248,6 +270,11 @@ jobs:
                     -A x64 ^
                     -DCMAKE_BUILD_TYPE=Release ^
                     -DBUILD_SHARED_LIBS=ON ^
+                    -DLLAMA_BUILD_TESTS=OFF \
+                    -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DLLAMA_BUILD_SERVER=OFF \
+                    -DGGML_BUILD_TESTS=OFF \
+                    -DGGML_BUILD_EXAMPLES=OFF \
                     -DGGML_CUDA=ON ^
                     -DLLAMA_CURL=OFF ^
                     -DCMAKE_CUDA_ARCHITECTURES="61;70;75;80;86;89;90"
@@ -298,6 +325,11 @@ jobs:
                   cmake -B build-vulkan \
                     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                     -DBUILD_SHARED_LIBS=ON \
+                    -DLLAMA_BUILD_TESTS=OFF \
+                    -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DLLAMA_BUILD_SERVER=OFF \
+                    -DGGML_BUILD_TESTS=OFF \
+                    -DGGML_BUILD_EXAMPLES=OFF \
                     -DGGML_VULKAN=ON \
                     -DLLAMA_CURL=OFF \
                     -DCMAKE_C_FLAGS="-Os" \
@@ -378,6 +410,11 @@ jobs:
                     -A x64 ^
                     -DCMAKE_BUILD_TYPE=Release ^
                     -DBUILD_SHARED_LIBS=ON ^
+                    -DLLAMA_BUILD_TESTS=OFF \
+                    -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DLLAMA_BUILD_SERVER=OFF \
+                    -DGGML_BUILD_TESTS=OFF \
+                    -DGGML_BUILD_EXAMPLES=OFF \
                     -DGGML_VULKAN=ON ^
                     -DLLAMA_CURL=OFF
 
@@ -422,6 +459,11 @@ jobs:
                   cmake -B build-opencl \
                     -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
                     -DBUILD_SHARED_LIBS=ON \
+                    -DLLAMA_BUILD_TESTS=OFF \
+                    -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DLLAMA_BUILD_SERVER=OFF \
+                    -DGGML_BUILD_TESTS=OFF \
+                    -DGGML_BUILD_EXAMPLES=OFF \
                     -DGGML_OPENCL=ON \
                     -DLLAMA_CURL=OFF \
                     -DCMAKE_C_FLAGS="-Os" \
@@ -472,6 +514,11 @@ jobs:
                     -A x64 ^
                     -DCMAKE_BUILD_TYPE=Release ^
                     -DBUILD_SHARED_LIBS=ON ^
+                    -DLLAMA_BUILD_TESTS=OFF \
+                    -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DLLAMA_BUILD_SERVER=OFF \
+                    -DGGML_BUILD_TESTS=OFF \
+                    -DGGML_BUILD_EXAMPLES=OFF \
                     -DGGML_OPENCL=ON ^
                     -DLLAMA_CURL=OFF ^
                     -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
