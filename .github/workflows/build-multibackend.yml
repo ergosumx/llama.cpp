@@ -1,0 +1,436 @@
+name: Build Multi-Backend
+
+on:
+    push:
+        branches: [main, develop]
+    pull_request:
+        branches: [main]
+    workflow_dispatch:
+
+env:
+    BUILD_TYPE: Release
+
+jobs:
+    # ============================================================================
+    # CPU Builds (All Platforms)
+    # ============================================================================
+
+    build-cpu-linux:
+        name: CPU - Linux x64
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install Dependencies
+              run: |
+                  sudo apt update
+                  sudo apt install -y cmake build-essential
+
+            - name: Configure CMake
+              run: |
+                  cmake -B build \
+                    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+                    -DBUILD_SHARED_LIBS=ON \
+                    -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DGGML_NATIVE=ON
+
+            - name: Build
+              run: cmake --build build -j$(nproc)
+
+            - name: Strip Binaries
+              run: |
+                  strip --strip-unneeded build/bin/*.so
+                  ls -lh build/bin/
+
+            - name: Run Tests
+              run: |
+                  ./build/bin/llama-bench --help
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-cpu-linux-x64
+                  path: |
+                      build/bin/libggml-cpu.so
+                      build/bin/libggml-base.so
+                      build/bin/libllama.so
+                  retention-days: 90
+
+    build-cpu-windows:
+        name: CPU - Windows x64
+        runs-on: windows-2022
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Configure CMake
+              run: |
+                  cmake -B build `
+                    -G "Visual Studio 17 2022" `
+                    -A x64 `
+                    -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
+                    -DBUILD_SHARED_LIBS=ON `
+                    -DLLAMA_BUILD_EXAMPLES=OFF
+
+            - name: Build
+              run: cmake --build build --config $env:BUILD_TYPE -j
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-cpu-win-x64
+                  path: |
+                      build/bin/Release/*.dll
+                  retention-days: 90
+
+    build-cpu-macos:
+        name: CPU - macOS ARM64
+        runs-on: macos-14
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Configure CMake
+              run: |
+                  cmake -B build \
+                    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+                    -DBUILD_SHARED_LIBS=ON \
+                    -DLLAMA_BUILD_EXAMPLES=OFF \
+                    -DGGML_NATIVE=ON
+
+            - name: Build
+              run: cmake --build build -j$(sysctl -n hw.ncpu)
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-cpu-osx-arm64
+                  path: |
+                      build/bin/*.dylib
+                  retention-days: 90
+
+    # ============================================================================
+    # CUDA Builds (Self-Hosted GPU Runners)
+    # ============================================================================
+
+    build-cuda-linux:
+        name: CUDA - Linux x64
+        runs-on:
+            group: linux64-gpu
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup GCC 12
+              run: |
+                  sudo apt update
+                  sudo apt install -y gcc-12 g++-12
+                  sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
+                  sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
+
+            - name: Verify CUDA
+              run: |
+                  nvcc --version
+                  nvidia-smi
+
+            - name: Configure CMake
+              env:
+                  CC: gcc-12
+                  CXX: g++-12
+                  CUDAHOSTCXX: g++-12
+              run: |
+                  cmake -B build-cuda \
+                    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+                    -DBUILD_SHARED_LIBS=ON \
+                    -DGGML_CUDA=ON \
+                    -DCMAKE_CUDA_ARCHITECTURES="61;70;75;80;86;89;90" \
+                    -DCMAKE_C_FLAGS="-Os" \
+                    -DCMAKE_CXX_FLAGS="-Os"
+
+            - name: Build
+              run: cmake --build build-cuda -j$(nproc)
+
+            - name: Strip Binaries
+              run: |
+                  strip --strip-unneeded build-cuda/bin/libggml-cuda.so
+                  ls -lh build-cuda/bin/
+
+            - name: Run Tests
+              run: |
+                  ./build-cuda/bin/llama-bench --help
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-cuda-linux-x64
+                  path: |
+                      build-cuda/bin/libggml-cuda.so
+                      build-cuda/bin/libggml-cpu.so
+                      build-cuda/bin/libggml-base.so
+                      build-cuda/bin/libllama.so
+                  retention-days: 90
+
+    build-cuda-windows:
+        name: CUDA - Windows x64
+        runs-on:
+            group: win64-gpu
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Environment
+              shell: powershell
+              run: |
+                  $env:PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\bin;" + $env:PATH
+                  $env:PATH = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\bin\Hostx64\x64;" + $env:PATH
+                  $env:PATH = "C:\Program Files\CMake\bin;" + $env:PATH
+                  echo "PATH=$env:PATH" >> $env:GITHUB_ENV
+
+            - name: Verify CUDA
+              shell: powershell
+              run: |
+                  nvcc --version
+                  nvidia-smi
+
+            - name: Configure CMake
+              shell: powershell
+              run: |
+                  cmake -B build-cuda `
+                    -G "Visual Studio 17 2022" `
+                    -A x64 `
+                    -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
+                    -DBUILD_SHARED_LIBS=ON `
+                    -DGGML_CUDA=ON `
+                    -DCMAKE_CUDA_ARCHITECTURES="61;70;75;80;86;89;90"
+
+            - name: Build
+              shell: powershell
+              run: cmake --build build-cuda --config $env:BUILD_TYPE -j
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-cuda-win-x64
+                  path: |
+                      build-cuda/bin/Release/*.dll
+                  retention-days: 90
+
+    # ============================================================================
+    # Vulkan Builds (Linux GPU Runners Only)
+    # ============================================================================
+
+    build-vulkan-linux:
+        name: Vulkan - Linux x64
+        runs-on:
+            group: linux64-gpu
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install Vulkan Dependencies
+              run: |
+                  sudo apt update
+                  sudo apt install -y \
+                    libvulkan-dev \
+                    vulkan-tools \
+                    glslc \
+                    libshaderc-dev
+
+            - name: Verify Vulkan
+              run: |
+                  vulkaninfo --summary
+                  which glslc
+                  glslc --version
+
+            - name: Configure CMake
+              run: |
+                  cmake -B build-vulkan \
+                    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+                    -DBUILD_SHARED_LIBS=ON \
+                    -DGGML_VULKAN=ON \
+                    -DCMAKE_C_FLAGS="-Os" \
+                    -DCMAKE_CXX_FLAGS="-Os"
+
+            - name: Build
+              run: cmake --build build-vulkan -j$(nproc)
+
+            - name: Verify Library Size
+              run: |
+                  ls -lh build-vulkan/bin/
+                  # Expected: ~38 MB (30 MB shaders + 5 MB symbols + 3 MB runtime)
+
+            - name: Run Tests
+              run: |
+                  ./build-vulkan/bin/llama-bench --help
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-vulkan-linux-x64
+                  path: |
+                      build-vulkan/bin/libggml-vulkan.so
+                      build-vulkan/bin/libggml-cpu.so
+                      build-vulkan/bin/libggml-base.so
+                      build-vulkan/bin/libllama.so
+                  retention-days: 90
+
+    # ============================================================================
+    # OpenCL Builds (All Platforms)
+    # ============================================================================
+
+    build-opencl-linux:
+        name: OpenCL - Linux x64
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install OpenCL Dependencies
+              run: |
+                  sudo apt update
+                  sudo apt install -y \
+                    opencl-headers \
+                    ocl-icd-opencl-dev \
+                    clinfo
+
+            - name: Configure CMake
+              run: |
+                  cmake -B build-opencl \
+                    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+                    -DBUILD_SHARED_LIBS=ON \
+                    -DGGML_OPENCL=ON \
+                    -DCMAKE_C_FLAGS="-Os" \
+                    -DCMAKE_CXX_FLAGS="-Os"
+
+            - name: Build
+              run: cmake --build build-opencl -j$(nproc)
+
+            - name: Strip Binaries
+              run: |
+                  strip --strip-unneeded build-opencl/bin/libggml-opencl.so
+                  ls -lh build-opencl/bin/
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-opencl-linux-x64
+                  path: |
+                      build-opencl/bin/libggml-opencl.so
+                      build-opencl/bin/libggml-cpu.so
+                      build-opencl/bin/libggml-base.so
+                      build-opencl/bin/libllama.so
+                  retention-days: 90
+
+    # ============================================================================
+    # Package Universal Build (All Backends)
+    # ============================================================================
+
+    package-universal:
+        name: Package Universal Build
+        needs:
+            - build-cpu-linux
+            - build-cuda-linux
+            - build-vulkan-linux
+            - build-opencl-linux
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Download All Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Create Package Structure
+              run: |
+                  mkdir -p universal/runtimes/linux-x64/native
+
+                  # Copy CPU backend (base)
+                  cp artifacts/ggufx-cpu-linux-x64/libllama.so universal/runtimes/linux-x64/native/
+                  cp artifacts/ggufx-cpu-linux-x64/libggml-base.so universal/runtimes/linux-x64/native/
+                  cp artifacts/ggufx-cpu-linux-x64/libggml-cpu.so universal/runtimes/linux-x64/native/
+
+                  # Copy CUDA backend
+                  cp artifacts/ggufx-cuda-linux-x64/libggml-cuda.so universal/runtimes/linux-x64/native/
+
+                  # Copy Vulkan backend
+                  cp artifacts/ggufx-vulkan-linux-x64/libggml-vulkan.so universal/runtimes/linux-x64/native/
+
+                  # Copy OpenCL backend
+                  cp artifacts/ggufx-opencl-linux-x64/libggml-opencl.so universal/runtimes/linux-x64/native/
+
+            - name: Show Package Contents
+              run: |
+                  ls -lh universal/runtimes/linux-x64/native/
+                  du -sh universal/runtimes/linux-x64/native/
+
+            - name: Create Checksums
+              run: |
+                  cd universal/runtimes/linux-x64/native
+                  sha256sum *.so > checksums.txt
+                  cat checksums.txt
+
+            - name: Upload Universal Package
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-universal-linux-x64
+                  path: universal/
+                  retention-days: 90
+
+    # ============================================================================
+    # Performance Benchmarks
+    # ============================================================================
+
+    benchmark:
+        name: Performance Benchmarks
+        needs: package-universal
+        runs-on:
+            group: linux64-gpu
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Download Universal Package
+              uses: actions/download-artifact@v4
+              with:
+                  name: ggufx-universal-linux-x64
+                  path: universal
+
+            - name: Download Test Model
+              run: |
+                  mkdir -p models
+                  # Download small test model (adjust URL as needed)
+                  wget -O models/test-model.gguf https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf
+
+            - name: Run CPU Benchmark
+              run: |
+                  export LD_LIBRARY_PATH=$PWD/universal/runtimes/linux-x64/native:$LD_LIBRARY_PATH
+                  ./build/bin/llama-bench \
+                    -m models/test-model.gguf \
+                    -p 512 -n 128 \
+                    -r 3 | tee benchmark-cpu.txt
+
+            - name: Run CUDA Benchmark
+              run: |
+                  export LD_LIBRARY_PATH=$PWD/universal/runtimes/linux-x64/native:$LD_LIBRARY_PATH
+                  ./build-cuda/bin/llama-bench \
+                    -m models/test-model.gguf \
+                    -p 512 -n 128 \
+                    -r 3 | tee benchmark-cuda.txt
+
+            - name: Upload Benchmark Results
+              uses: actions/upload-artifact@v4
+              with:
+                  name: benchmark-results
+                  path: |
+                      benchmark-cpu.txt
+                      benchmark-cuda.txt
+                  retention-days: 90
