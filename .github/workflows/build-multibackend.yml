@@ -2,7 +2,7 @@ name: Build Multi-Backend
 
 on:
     push:
-        branches: [main, develop]
+        branches: [main, develop, master]
     pull_request:
         branches: [main]
     workflow_dispatch:
@@ -183,13 +183,6 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Setup GCC 12
-              run: |
-                  sudo apt update
-                  sudo apt install -y gcc-12 g++-12
-                  sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100
-                  sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100
-
             - name: Verify CUDA
               run: |
                   nvcc --version
@@ -265,20 +258,7 @@ jobs:
 
             - name: Configure CMake
               shell: cmd
-              run: |
-                  cmake -B build-cuda ^
-                    -G "Visual Studio 17 2022" ^
-                    -A x64 ^
-                    -DCMAKE_BUILD_TYPE=Release ^
-                    -DBUILD_SHARED_LIBS=ON ^
-                    -DLLAMA_BUILD_TESTS=OFF \
-                    -DLLAMA_BUILD_EXAMPLES=OFF \
-                    -DLLAMA_BUILD_SERVER=OFF \
-                    -DGGML_BUILD_TESTS=OFF \
-                    -DGGML_BUILD_EXAMPLES=OFF \
-                    -DGGML_CUDA=ON ^
-                    -DLLAMA_CURL=OFF ^
-                    -DCMAKE_CUDA_ARCHITECTURES="61;70;75;80;86;89;90"
+              run: cmake -B build-cuda -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF -DGGML_CUDA=ON -DLLAMA_CURL=OFF -DCMAKE_CUDA_ARCHITECTURES="61;70;75;80;86;89;90"
 
             - name: Build
               shell: cmd
@@ -405,19 +385,7 @@ jobs:
 
             - name: Configure CMake
               shell: cmd
-              run: |
-                  cmake -B build-vulkan ^
-                    -G "Visual Studio 17 2022" ^
-                    -A x64 ^
-                    -DCMAKE_BUILD_TYPE=Release ^
-                    -DBUILD_SHARED_LIBS=ON ^
-                    -DLLAMA_BUILD_TESTS=OFF \
-                    -DLLAMA_BUILD_EXAMPLES=OFF \
-                    -DLLAMA_BUILD_SERVER=OFF \
-                    -DGGML_BUILD_TESTS=OFF \
-                    -DGGML_BUILD_EXAMPLES=OFF \
-                    -DGGML_VULKAN=ON ^
-                    -DLLAMA_CURL=OFF
+              run: cmake -B build-vulkan -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF -DGGML_VULKAN=ON -DLLAMA_CURL=OFF
 
             - name: Build
               shell: cmd
@@ -509,20 +477,7 @@ jobs:
 
             - name: Configure CMake
               shell: cmd
-              run: |
-                  cmake -B build-opencl ^
-                    -G "Visual Studio 17 2022" ^
-                    -A x64 ^
-                    -DCMAKE_BUILD_TYPE=Release ^
-                    -DBUILD_SHARED_LIBS=ON ^
-                    -DLLAMA_BUILD_TESTS=OFF \
-                    -DLLAMA_BUILD_EXAMPLES=OFF \
-                    -DLLAMA_BUILD_SERVER=OFF \
-                    -DGGML_BUILD_TESTS=OFF \
-                    -DGGML_BUILD_EXAMPLES=OFF \
-                    -DGGML_OPENCL=ON ^
-                    -DLLAMA_CURL=OFF ^
-                    -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
+              run: cmake -B build-opencl -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF -DGGML_OPENCL=ON -DLLAMA_CURL=OFF -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
 
             - name: Build
               shell: cmd
