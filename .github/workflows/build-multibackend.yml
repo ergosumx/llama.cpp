@@ -21,8 +21,7 @@ jobs:
 
         steps:
             - name: Checkout
-              uses: actions/checkout@v4
-
+              uses: action
             - name: Install Dependencies
               run: |
                   sudo apt update
@@ -225,42 +224,37 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Allow PowerShell script execution
-              shell: powershell
-              run: |
-                  Set-ExecutionPolicy Unrestricted -Scope Process -Force
-
             - name: Setup Environment
-              shell: powershell
+              shell: cmd
               run: |
-                  $env:PATH = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;" + $env:PATH
-                  $env:PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\bin;" + $env:PATH
-                  $env:PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\libnvvp;" + $env:PATH
-                  $env:PATH = "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\bin\Hostx64\x64;" + $env:PATH
-                  $env:PATH = "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin;" + $env:PATH
-                  echo "PATH=$env:PATH" >> $env:GITHUB_ENV
+                  set "PATH=C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;%PATH%"
+                  set "PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\bin;%PATH%"
+                  set "PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\libnvvp;%PATH%"
+                  set "PATH=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\bin\Hostx64\x64;%PATH%"
+                  set "PATH=C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin;%PATH%"
+                  echo PATH=%PATH%>> %GITHUB_ENV%
 
             - name: Verify CUDA
-              shell: powershell
+              shell: cmd
               run: |
                   nvcc --version
                   nvidia-smi
 
             - name: Configure CMake
-              shell: powershell
+              shell: cmd
               run: |
-                  cmake -B build-cuda `
-                    -G "Visual Studio 17 2022" `
-                    -A x64 `
-                    -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
-                    -DBUILD_SHARED_LIBS=ON `
-                    -DGGML_CUDA=ON `
-                    -DLLAMA_CURL=OFF `
+                  cmake -B build-cuda ^
+                    -G "Visual Studio 17 2022" ^
+                    -A x64 ^
+                    -DCMAKE_BUILD_TYPE=Release ^
+                    -DBUILD_SHARED_LIBS=ON ^
+                    -DGGML_CUDA=ON ^
+                    -DLLAMA_CURL=OFF ^
                     -DCMAKE_CUDA_ARCHITECTURES="61;70;75;80;86;89;90"
 
             - name: Build
-              shell: powershell
-              run: cmake --build build-cuda --config $env:BUILD_TYPE -j
+              shell: cmd
+              run: cmake --build build-cuda --config Release -j
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
@@ -349,85 +343,51 @@ jobs:
 
             - name: Install Vulkan SDK
               if: steps.cache-vulkan.outputs.cache-hit != 'true'
-              shell: powershell
               run: |
-                  # Download Vulkan SDK with timeout and retries
-                  $maxRetries = 3
-                  $retryCount = 0
-                  $downloadSuccess = $false
-
-                  while (-not $downloadSuccess -and $retryCount -lt $maxRetries) {
-                      try {
-                          Write-Host "Download attempt $($retryCount + 1) of $maxRetries..."
-                          $ProgressPreference = 'SilentlyContinue'
-                          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/1.3.275.0/windows/VulkanSDK-1.3.275.0-Installer.exe" `
-                              -OutFile VulkanSDK.exe `
-                              -TimeoutSec 300
-
-                          if (Test-Path VulkanSDK.exe) {
-                              $fileSize = (Get-Item VulkanSDK.exe).Length / 1MB
-                              Write-Host "Downloaded successfully: $([math]::Round($fileSize, 2)) MB"
-                              $downloadSuccess = $true
-                          }
-                      }
-                      catch {
-                          Write-Host "Download failed: $_"
-                          $retryCount++
-                          if ($retryCount -lt $maxRetries) {
-                              Write-Host "Waiting 10 seconds before retry..."
-                              Start-Sleep -Seconds 10
-                          }
-                      }
-                  }
-
-                  if (-not $downloadSuccess) {
-                      throw "Failed to download Vulkan SDK after $maxRetries attempts"
-                  }
-
-                  # Install Vulkan SDK
-                  Write-Host "Installing Vulkan SDK..."
-                  Start-Process -FilePath .\VulkanSDK.exe -ArgumentList "/S" -Wait
-
-                  # Verify installation
-                  if (-not (Test-Path "C:\VulkanSDK\1.3.275.0")) {
-                      throw "Vulkan SDK installation failed - directory not found"
-                  }
-
-                  Write-Host "Vulkan SDK installation complete"
+                  echo "Downloading Vulkan SDK..."
+                  curl -L -o VulkanSDK.exe "https://sdk.lunarg.com/sdk/download/1.3.275.0/windows/VulkanSDK-1.3.275.0-Installer.exe"
+                  if not exist VulkanSDK.exe (
+                      echo "Download failed"
+                      exit /b 1
+                  )
+                  echo "Installing Vulkan SDK..."
+                  start /wait VulkanSDK.exe /S
+                  if not exist "C:\VulkanSDK\1.3.275.0" (
+                      echo "Installation failed"
+                      exit /b 1
+                  )
+                  echo "Vulkan SDK installation complete"
+              shell: cmd
 
             - name: Setup Vulkan Environment
-              shell: powershell
+              shell: cmd
               run: |
-                  # Add to PATH (works for both cached and fresh install)
-                  $env:VULKAN_SDK = "C:\VulkanSDK\1.3.275.0"
-                  $env:PATH = "$env:VULKAN_SDK\Bin;" + $env:PATH
-                  echo "VULKAN_SDK=$env:VULKAN_SDK" >> $env:GITHUB_ENV
-                  echo "$env:VULKAN_SDK\Bin" >> $env:GITHUB_PATH
+                  set "VULKAN_SDK=C:\VulkanSDK\1.3.275.0"
+                  echo VULKAN_SDK=%VULKAN_SDK%>> %GITHUB_ENV%
+                  echo %VULKAN_SDK%\Bin>> %GITHUB_PATH%
 
             - name: Verify Vulkan
-              shell: powershell
-              run: |
-                  glslc --version
+              shell: cmd
+              run: glslc --version
 
             - name: Configure CMake
-              shell: powershell
+              shell: cmd
               run: |
-                  cmake -B build-vulkan `
-                    -G "Visual Studio 17 2022" `
-                    -A x64 `
-                    -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
-                    -DBUILD_SHARED_LIBS=ON `
-                    -DGGML_VULKAN=ON `
+                  cmake -B build-vulkan ^
+                    -G "Visual Studio 17 2022" ^
+                    -A x64 ^
+                    -DCMAKE_BUILD_TYPE=Release ^
+                    -DBUILD_SHARED_LIBS=ON ^
+                    -DGGML_VULKAN=ON ^
                     -DLLAMA_CURL=OFF
 
             - name: Build
-              shell: powershell
-              run: cmake --build build-vulkan --config $env:BUILD_TYPE -j
+              shell: cmd
+              run: cmake --build build-vulkan --config Release -j
 
             - name: Verify Library Size
-              shell: powershell
-              run: |
-                  Get-ChildItem build-vulkan\bin\Release\ -Recurse
+              shell: cmd
+              run: dir /s build-vulkan\bin\Release\
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
@@ -495,33 +455,30 @@ jobs:
               uses: actions/checkout@v4
 
             - name: Install OpenCL SDK
-              shell: powershell
+              shell: cmd
               run: |
-                  # Install OpenCL headers and ICD loader via vcpkg
                   git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
                   cd C:\vcpkg
-                  .\bootstrap-vcpkg.bat
-                  .\vcpkg integrate install
-                  .\vcpkg install opencl:x64-windows
-
-                  # Add to environment
-                  echo "VCPKG_ROOT=C:\vcpkg" >> $env:GITHUB_ENV
+                  call bootstrap-vcpkg.bat
+                  vcpkg integrate install
+                  vcpkg install opencl:x64-windows
+                  echo VCPKG_ROOT=C:\vcpkg>> %GITHUB_ENV%
 
             - name: Configure CMake
-              shell: powershell
+              shell: cmd
               run: |
-                  cmake -B build-opencl `
-                    -G "Visual Studio 17 2022" `
-                    -A x64 `
-                    -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
-                    -DBUILD_SHARED_LIBS=ON `
-                    -DGGML_OPENCL=ON `
-                    -DLLAMA_CURL=OFF `
+                  cmake -B build-opencl ^
+                    -G "Visual Studio 17 2022" ^
+                    -A x64 ^
+                    -DCMAKE_BUILD_TYPE=Release ^
+                    -DBUILD_SHARED_LIBS=ON ^
+                    -DGGML_OPENCL=ON ^
+                    -DLLAMA_CURL=OFF ^
                     -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
 
             - name: Build
-              shell: powershell
-              run: cmake --build build-opencl --config $env:BUILD_TYPE -j
+              shell: cmd
+              run: cmake --build build-opencl --config Release -j
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
@@ -597,34 +554,23 @@ jobs:
                   path: artifacts
 
             - name: Create Package Structure
-              shell: powershell
+              shell: cmd
               run: |
-                  New-Item -ItemType Directory -Force -Path universal\runtimes\win-x64\native
-
-                  # Copy CPU backend (base)
-                  Copy-Item artifacts\ggufx-cpu-win-x64\*.dll universal\runtimes\win-x64\native\
-
-                  # Copy Vulkan backend
-                  Copy-Item artifacts\ggufx-vulkan-win-x64\*.dll universal\runtimes\win-x64\native\ -Force -ErrorAction SilentlyContinue
-
-                  # Copy OpenCL backend
-                  Copy-Item artifacts\ggufx-opencl-win-x64\*.dll universal\runtimes\win-x64\native\ -Force -ErrorAction SilentlyContinue
+                  mkdir universal\runtimes\win-x64\native
+                  copy artifacts\ggufx-cpu-win-x64\*.dll universal\runtimes\win-x64\native\
+                  copy artifacts\ggufx-vulkan-win-x64\*.dll universal\runtimes\win-x64\native\ 2>nul || echo "Vulkan artifacts not found (optional)"
+                  copy artifacts\ggufx-opencl-win-x64\*.dll universal\runtimes\win-x64\native\ 2>nul || echo "OpenCL artifacts not found (optional)"
 
             - name: Show Package Contents
-              shell: powershell
-              run: |
-                  Get-ChildItem universal\runtimes\win-x64\native\ -Recurse
-                  "{0:N2} MB" -f ((Get-ChildItem universal\runtimes\win-x64\native\ -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB)
+              shell: cmd
+              run: dir /s universal\runtimes\win-x64\native\
 
             - name: Create Checksums
-              shell: powershell
+              shell: cmd
               run: |
                   cd universal\runtimes\win-x64\native
-                  Get-ChildItem *.dll | ForEach-Object {
-                      $hash = Get-FileHash $_.Name -Algorithm SHA256
-                      "$($hash.Hash)  $($_.Name)"
-                  } | Out-File checksums.txt
-                  Get-Content checksums.txt
+                  for %%f in (*.dll) do certutil -hashfile "%%f" SHA256 | find /v ":" >> checksums.txt
+                  type checksums.txt
 
             - name: Upload Universal Package
               uses: actions/upload-artifact@v4
