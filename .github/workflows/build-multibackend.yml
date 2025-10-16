@@ -12,10 +12,10 @@ env:
 
 jobs:
     # ============================================================================
-    # CPU Builds (All Platforms)
+    # CPU Builds (All Platforms + ARM)
     # ============================================================================
 
-    build-cpu-linux:
+    build-cpu-linux-x64:
         name: CPU - Linux x64
         runs-on: ubuntu-22.04
 
@@ -23,47 +23,35 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Install Dependencies
-              run: |
-                  sudo apt update
-                  sudo apt install -y cmake build-essential
-
-            - name: Configure CMake
-              run: |
-                  cmake -B build \
-                    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-                    -DBUILD_SHARED_LIBS=ON \
-                    -DLLAMA_BUILD_TESTS=OFF \
-                    -DLLAMA_BUILD_EXAMPLES=OFF \
-                    -DLLAMA_BUILD_SERVER=OFF \
-                    -DGGML_BUILD_TESTS=OFF \
-                    -DGGML_BUILD_EXAMPLES=OFF \
-                    -DLLAMA_CURL=OFF \
-                    -DGGML_NATIVE=ON
-
             - name: Build
-              run: cmake --build build -j$(nproc)
-
-            - name: Strip Binaries
-              run: |
-                  strip --strip-unneeded build/bin/*.so
-                  ls -lh build/bin/
-
-            - name: Run Tests
-              run: |
-                  ./build/bin/llama-bench --help
+              run: ./.scripts/build_linux_x64.sh
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
               with:
                   name: ggufx-cpu-linux-x64
-                  path: |
-                      build/bin/libggml-cpu.so
-                      build/bin/libggml-base.so
-                      build/bin/libllama.so
+                  path: .publish/linux-x64/cpu/*.so
                   retention-days: 90
 
-    build-cpu-windows:
+    build-cpu-linux-arm64:
+        name: CPU - Linux ARM64
+        runs-on: ubuntu-22.04-arm
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build
+              run: ./.scripts/build_linux_arm64.sh
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-cpu-linux-arm64
+                  path: .publish/linux-arm64/cpu/*.so
+                  retention-days: 90
+
+    build-cpu-windows-x64:
         name: CPU - Windows x64
         runs-on: windows-2022
 
@@ -71,29 +59,32 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Configure CMake
-              run: |
-                  cmake -B build `
-                    -G "Visual Studio 17 2022" `
-                    -A x64 `
-                    -DCMAKE_BUILD_TYPE=$env:BUILD_TYPE `
-                    -DBUILD_SHARED_LIBS=ON `
-                    -DLLAMA_BUILD_TESTS=OFF `
-                    -DLLAMA_BUILD_EXAMPLES=OFF `
-                    -DLLAMA_BUILD_SERVER=OFF `
-                    -DGGML_BUILD_TESTS=OFF `
-                    -DGGML_BUILD_EXAMPLES=OFF `
-                    -DLLAMA_CURL=OFF
-
             - name: Build
-              run: cmake --build build --config $env:BUILD_TYPE -j
+              run: .\.scripts\build_windows_x64.ps1
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
               with:
                   name: ggufx-cpu-win-x64
-                  path: |
-                      build/bin/Release/*.dll
+                  path: .publish/windows-x64/cpu/*.dll
+                  retention-days: 90
+
+    build-cpu-windows-arm64:
+        name: CPU - Windows ARM64
+        runs-on: windows-11-arm
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build
+              run: .\.scripts\build_windows_arm64.ps1
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-cpu-win-arm64
+                  path: .publish/windows-arm64/cpu/*.dll
                   retention-days: 90
 
     build-cpu-macos:
@@ -171,108 +162,6 @@ jobs:
                   retention-days: 90
 
     # ============================================================================
-    # CUDA Builds (Self-Hosted GPU Runners)
-    # ============================================================================
-
-    build-cuda-linux:
-        name: CUDA - Linux x64
-        runs-on:
-            group: linux64-gpu
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Verify CUDA
-              run: |
-                  nvcc --version
-                  nvidia-smi
-
-            - name: Configure CMake
-              env:
-                  CC: gcc-12
-                  CXX: g++-12
-                  CUDAHOSTCXX: g++-12
-              run: |
-                  cmake -B build-cuda \
-                    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-                    -DBUILD_SHARED_LIBS=ON \
-                    -DLLAMA_BUILD_TESTS=OFF \
-                    -DLLAMA_BUILD_EXAMPLES=OFF \
-                    -DLLAMA_BUILD_SERVER=OFF \
-                    -DGGML_BUILD_TESTS=OFF \
-                    -DGGML_BUILD_EXAMPLES=OFF \
-                    -DGGML_CUDA=ON \
-                    -DLLAMA_CURL=OFF \
-                    -DCMAKE_CUDA_ARCHITECTURES="61;70;75;80;86;89;90" \
-                    -DCMAKE_C_FLAGS="-Os" \
-                    -DCMAKE_CXX_FLAGS="-Os"
-
-            - name: Build
-              run: cmake --build build-cuda -j$(nproc)
-
-            - name: Strip Binaries
-              run: |
-                  strip --strip-unneeded build-cuda/bin/libggml-cuda.so
-                  ls -lh build-cuda/bin/
-
-            - name: Run Tests
-              run: |
-                  ./build-cuda/bin/llama-bench --help
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-cuda-linux-x64
-                  path: |
-                      build-cuda/bin/libggml-cuda.so
-                      build-cuda/bin/libggml-cpu.so
-                      build-cuda/bin/libggml-base.so
-                      build-cuda/bin/libllama.so
-                  retention-days: 90
-
-    build-cuda-windows:
-        name: CUDA - Windows x64
-        runs-on:
-            group: win64-gpu
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Setup Environment
-              shell: cmd
-              run: |
-                  set "PATH=C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin;%PATH%"
-                  set "PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\bin;%PATH%"
-                  set "PATH=C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\libnvvp;%PATH%"
-                  set "PATH=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.39.33519\bin\Hostx64\x64;%PATH%"
-                  set "PATH=C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin;%PATH%"
-                  echo PATH=%PATH%>> %GITHUB_ENV%
-
-            - name: Verify CUDA
-              shell: cmd
-              run: |
-                  nvcc --version
-                  nvidia-smi
-
-            - name: Configure CMake
-              shell: cmd
-              run: cmake -B build-cuda -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF -DGGML_CUDA=ON -DLLAMA_CURL=OFF -DCMAKE_CUDA_ARCHITECTURES="61;70;75;80;86;89;90"
-
-            - name: Build
-              shell: cmd
-              run: cmake --build build-cuda --config Release -j
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-cuda-win-x64
-                  path: |
-                      build-cuda/bin/Release/*.dll
-                  retention-days: 90
-
-    # ============================================================================
     # Vulkan Builds (GitHub-Hosted Runners)
     # ============================================================================
 
@@ -339,68 +228,57 @@ jobs:
                       build-vulkan/bin/libllama.so
                   retention-days: 90
 
-    build-vulkan-windows:
-        name: Vulkan - Windows x64
-        runs-on: windows-2022
+    build-vulkan-linux-arm64:
+        name: Vulkan - Linux ARM64
+        runs-on: ubuntu-22.04-arm
 
         steps:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Cache Vulkan SDK
-              id: cache-vulkan
-              uses: actions/cache@v4
-              with:
-                  path: C:\VulkanSDK\1.3.275.0
-                  key: vulkan-sdk-1.3.275.0-windows
-
-            - name: Install Vulkan SDK
-              if: steps.cache-vulkan.outputs.cache-hit != 'true'
-              run: |
-                  echo "Downloading Vulkan SDK..."
-                  curl -L -o VulkanSDK.exe "https://sdk.lunarg.com/sdk/download/1.3.275.0/windows/VulkanSDK-1.3.275.0-Installer.exe"
-                  if not exist VulkanSDK.exe (
-                      echo "Download failed"
-                      exit /b 1
-                  )
-                  echo "Installing Vulkan SDK..."
-                  start /wait VulkanSDK.exe /S
-                  if not exist "C:\VulkanSDK\1.3.275.0" (
-                      echo "Installation failed"
-                      exit /b 1
-                  )
-                  echo "Vulkan SDK installation complete"
-              shell: cmd
-
-            - name: Setup Vulkan Environment
-              shell: cmd
-              run: |
-                  set "VULKAN_SDK=C:\VulkanSDK\1.3.275.0"
-                  echo VULKAN_SDK=%VULKAN_SDK%>> %GITHUB_ENV%
-                  echo %VULKAN_SDK%\Bin>> %GITHUB_PATH%
-
-            - name: Verify Vulkan
-              shell: cmd
-              run: glslc --version
-
-            - name: Configure CMake
-              shell: cmd
-              run: cmake -B build-vulkan -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF -DGGML_VULKAN=ON -DLLAMA_CURL=OFF
-
             - name: Build
-              shell: cmd
-              run: cmake --build build-vulkan --config Release -j
-
-            - name: Verify Library Size
-              shell: cmd
-              run: dir /s build-vulkan\bin\Release\
+              run: ./.scripts/build_linux_arm64_vulkan.sh
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
               with:
-                  name: ggufx-vulkan-win-x64
-                  path: |
-                      build-vulkan/bin/Release/*.dll
+                  name: ggufx-vulkan-linux-arm64
+                  path: .publish/linux-arm64/vulkan/*.so
+                  retention-days: 90
+
+    # ============================================================================
+    # Android Builds (ARM64 with Vulkan)
+    # ============================================================================
+
+    build-android-arm64-vulkan:
+        name: Android ARM64 - Vulkan
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Android NDK
+              run: |
+                  # Download and setup Android NDK r26d
+                  NDK_VERSION="r26d"
+                  wget -q https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip
+                  unzip -q android-ndk-${NDK_VERSION}-linux.zip
+                  echo "ANDROID_NDK=$PWD/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
+
+            - name: Verify NDK Installation
+              run: |
+                  ls -la $ANDROID_NDK
+                  ls -la $ANDROID_NDK/build/cmake/
+
+            - name: Build
+              run: ./.scripts/build_android_arm64_vulkan.sh
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-android-arm64-vulkan
+                  path: .publish/android-arm64/vulkan/*.so
                   retention-days: 90
 
     # ============================================================================
@@ -495,10 +373,10 @@ jobs:
     # Package Universal Build (All Backends)
     # ============================================================================
 
-    package-universal-linux:
-        name: Package Universal Build - Linux
+    package-universal-linux-x64:
+        name: Package Universal Build - Linux x64
         needs:
-            - build-cpu-linux
+            - build-cpu-linux-x64
             - build-vulkan-linux
             - build-opencl-linux
         runs-on: ubuntu-22.04
@@ -542,11 +420,51 @@ jobs:
                   path: universal/
                   retention-days: 90
 
-    package-universal-windows:
-        name: Package Universal Build - Windows
+    package-universal-linux-arm64:
+        name: Package Universal Build - Linux ARM64
         needs:
-            - build-cpu-windows
-            - build-vulkan-windows
+            - build-cpu-linux-arm64
+            - build-vulkan-linux-arm64
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Download All Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Create Package Structure
+              run: |
+                  mkdir -p universal/runtimes/linux-arm64/native
+
+                  # Copy CPU backend (base)
+                  cp artifacts/ggufx-cpu-linux-arm64/*.so universal/runtimes/linux-arm64/native/
+
+                  # Copy Vulkan backend
+                  cp artifacts/ggufx-vulkan-linux-arm64/*.so universal/runtimes/linux-arm64/native/ || echo "Vulkan build optional"
+
+            - name: Show Package Contents
+              run: |
+                  ls -lh universal/runtimes/linux-arm64/native/
+                  du -sh universal/runtimes/linux-arm64/native/
+
+            - name: Create Checksums
+              run: |
+                  cd universal/runtimes/linux-arm64/native
+                  sha256sum *.so > checksums.txt
+                  cat checksums.txt
+
+            - name: Upload Universal Package
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-universal-linux-arm64
+                  path: universal/
+                  retention-days: 90
+
+    package-universal-windows-x64:
+        name: Package Universal Build - Windows x64
+        needs:
+            - build-cpu-windows-x64
             - build-opencl-windows
         runs-on: windows-2022
 
@@ -561,7 +479,6 @@ jobs:
               run: |
                   mkdir universal\runtimes\win-x64\native
                   copy artifacts\ggufx-cpu-win-x64\*.dll universal\runtimes\win-x64\native\
-                  copy artifacts\ggufx-vulkan-win-x64\*.dll universal\runtimes\win-x64\native\ 2>nul || echo "Vulkan artifacts not found (optional)"
                   copy artifacts\ggufx-opencl-win-x64\*.dll universal\runtimes\win-x64\native\ 2>nul || echo "OpenCL artifacts not found (optional)"
 
             - name: Show Package Contents
@@ -579,6 +496,42 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: ggufx-universal-win-x64
+                  path: universal/
+                  retention-days: 90
+
+    package-universal-windows-arm64:
+        name: Package Universal Build - Windows ARM64
+        needs:
+            - build-cpu-windows-arm64
+        runs-on: windows-2022
+
+        steps:
+            - name: Download All Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Create Package Structure
+              shell: cmd
+              run: |
+                  mkdir universal\runtimes\win-arm64\native
+                  copy artifacts\ggufx-cpu-win-arm64\*.dll universal\runtimes\win-arm64\native\
+
+            - name: Show Package Contents
+              shell: cmd
+              run: dir /s universal\runtimes\win-arm64\native\
+
+            - name: Create Checksums
+              shell: cmd
+              run: |
+                  cd universal\runtimes\win-arm64\native
+                  for %%f in (*.dll) do certutil -hashfile "%%f" SHA256 | find /v ":" >> checksums.txt
+                  type checksums.txt
+
+            - name: Upload Universal Package
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-universal-win-arm64
                   path: universal/
                   retention-days: 90
 
@@ -621,5 +574,104 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: ggufx-universal-osx-arm64
+                  path: universal/
+                  retention-days: 90
+
+    package-universal-android:
+        name: Package Universal Build - Android ARM64
+        needs:
+            - build-android-arm64-vulkan
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Download All Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Create Package Structure
+              run: |
+                  mkdir -p universal/runtimes/android-arm64/native
+
+                  # Copy Vulkan backend (Android uses Vulkan for GPU acceleration)
+                  cp artifacts/ggufx-android-arm64-vulkan/*.so universal/runtimes/android-arm64/native/
+
+            - name: Show Package Contents
+              run: |
+                  ls -lh universal/runtimes/android-arm64/native/
+                  du -sh universal/runtimes/android-arm64/native/
+
+            - name: Create Checksums
+              run: |
+                  cd universal/runtimes/android-arm64/native
+                  sha256sum *.so > checksums.txt
+                  cat checksums.txt
+
+            - name: Create Android Integration README
+              run: |
+                  cat > universal/runtimes/android-arm64/README.md << 'EOF'
+                  # Android ARM64 Integration
+
+                  ## Integration Steps
+
+                  1. Copy all `.so` files to your Android project:
+                     ```
+                     app/src/main/jniLibs/arm64-v8a/
+                     ```
+
+                  2. Add to your `build.gradle`:
+                     ```gradle
+                     android {
+                         defaultConfig {
+                             minSdkVersion 24  // Android 7.0+
+                             ndk {
+                                 abiFilters 'arm64-v8a'
+                             }
+                         }
+                     }
+                     ```
+
+                  3. Load native library in your Java/Kotlin code:
+                     ```java
+                     static {
+                         System.loadLibrary("llama");
+                     }
+                     ```
+
+                  ## Requirements
+
+                  - **Minimum Android version**: 7.0 (API 24)
+                  - **Required hardware**: ARM64 device with Vulkan support
+                  - **Architecture**: arm64-v8a only
+
+                  ## Vulkan Support
+
+                  These libraries are built with Vulkan support for GPU acceleration.
+                  Most modern Android devices (2018+) support Vulkan.
+
+                  To check Vulkan support:
+                  ```java
+                  PackageManager pm = context.getPackageManager();
+                  boolean hasVulkan = pm.hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL, 1);
+                  ```
+
+                  ## Included Libraries
+
+                  - `libllama.so` - Main llama.cpp library
+                  - `libggml-vulkan.so` - Vulkan-accelerated GGML backend
+                  - `libggml-cpu.so` - CPU fallback backend
+                  - `libggml-base.so` - Base GGML library
+
+                  ## Notes
+
+                  - All libraries are stripped for minimal size
+                  - Built with Android NDK r26d
+                  - Vulkan provides significant performance improvements on supported devices
+                  EOF
+
+            - name: Upload Universal Package
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-universal-android-arm64
                   path: universal/
                   retention-days: 90
