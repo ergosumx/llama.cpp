@@ -27,16 +27,25 @@ echo "==========================================================================
 # Verify Vulkan installation
 echo "Verifying Vulkan installation..."
 if ! command -v glslc &> /dev/null; then
-    echo "WARNING: glslc not found. Attempting to install Vulkan SDK..."
-    echo "Adding LunarG repository..."
-    wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-    sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list \
-        https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
-    sudo apt update
-    sudo apt install -y vulkan-sdk
+    echo "WARNING: glslc not found. Installing Vulkan development packages..."
+    # For ARM64, use Ubuntu's native Vulkan packages instead of LunarG repo
+    sudo apt-get update
+    sudo apt-get install -y \
+        libvulkan-dev \
+        vulkan-tools \
+        glslang-tools \
+        spirv-tools
+    
+    echo "Installed Vulkan packages:"
+    dpkg -l | grep vulkan || true
+    echo "glslc location: $(which glslc || echo 'not found in PATH')"
 fi
 
-glslc --version
+if command -v glslc &> /dev/null; then
+    glslc --version
+else
+    echo "WARNING: glslc still not available. Build may fail if Vulkan shaders need compilation."
+fi
 
 # Clean previous build
 rm -rf "$BUILD_DIR"

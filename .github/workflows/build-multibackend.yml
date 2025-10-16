@@ -95,28 +95,14 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Configure CMake
-              run: |
-                  cmake -B build \
-                    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-                    -DBUILD_SHARED_LIBS=ON \
-                    -DLLAMA_BUILD_TESTS=OFF \
-                    -DLLAMA_BUILD_EXAMPLES=OFF \
-                    -DLLAMA_BUILD_SERVER=OFF \
-                    -DGGML_BUILD_TESTS=OFF \
-                    -DGGML_BUILD_EXAMPLES=OFF \
-                    -DLLAMA_CURL=OFF \
-                    -DGGML_NATIVE=ON
-
             - name: Build
-              run: cmake --build build -j$(sysctl -n hw.ncpu)
+              run: ./.scripts/build_macos_x64.sh
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
               with:
                   name: ggufx-cpu-osx-arm64
-                  path: |
-                      build/bin/*.dylib
+                  path: .publish/macos-arm64/cpu/*.dylib
                   retention-days: 90
 
     # ============================================================================
@@ -131,34 +117,14 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Configure CMake
-              run: |
-                  cmake -B build-metal \
-                    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-                    -DBUILD_SHARED_LIBS=ON \
-                    -DLLAMA_BUILD_TESTS=OFF \
-                    -DLLAMA_BUILD_EXAMPLES=OFF \
-                    -DLLAMA_BUILD_SERVER=OFF \
-                    -DGGML_BUILD_TESTS=OFF \
-                    -DGGML_BUILD_EXAMPLES=OFF \
-                    -DGGML_METAL=ON \
-                    -DLLAMA_CURL=OFF
-
             - name: Build
-              run: cmake --build build-metal -j$(sysctl -n hw.ncpu)
-
-            - name: Verify Metal Library
-              run: |
-                  ls -lh build-metal/bin/
-                  file build-metal/bin/libggml-metal.dylib || echo "Metal library built"
+              run: ./.scripts/build_macos_metal.sh
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
               with:
                   name: ggufx-metal-osx-arm64
-                  path: |
-                      build-metal/bin/*.dylib
-                      build-metal/bin/*.metal
+                  path: .publish/macos-arm64/metal/*.dylib
                   retention-days: 90
 
     # ============================================================================
@@ -173,59 +139,14 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Install Vulkan Dependencies
-              run: |
-                  sudo apt update
-                  sudo apt install -y libvulkan-dev vulkan-tools wget
-
-                  # Download and install Vulkan SDK for glslc and shaderc
-                  wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-                  sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
-                  sudo apt update
-                  sudo apt install -y vulkan-sdk
-
-            - name: Verify Vulkan
-              run: |
-                  which glslc
-                  glslc --version
-                  vulkaninfo --summary || echo "vulkaninfo requires GPU runtime"
-
-            - name: Configure CMake
-              run: |
-                  cmake -B build-vulkan \
-                    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-                    -DBUILD_SHARED_LIBS=ON \
-                    -DLLAMA_BUILD_TESTS=OFF \
-                    -DLLAMA_BUILD_EXAMPLES=OFF \
-                    -DLLAMA_BUILD_SERVER=OFF \
-                    -DGGML_BUILD_TESTS=OFF \
-                    -DGGML_BUILD_EXAMPLES=OFF \
-                    -DGGML_VULKAN=ON \
-                    -DLLAMA_CURL=OFF \
-                    -DCMAKE_C_FLAGS="-Os" \
-                    -DCMAKE_CXX_FLAGS="-Os"
-
             - name: Build
-              run: cmake --build build-vulkan -j$(nproc)
-
-            - name: Verify Library Size
-              run: |
-                  ls -lh build-vulkan/bin/
-                  # Expected: ~38 MB (30 MB shaders + 5 MB symbols + 3 MB runtime)
-
-            - name: Run Tests
-              run: |
-                  ./build-vulkan/bin/llama-bench --help || echo "llama-bench not critical for library"
+              run: ./.scripts/build_linux_vulkan.sh
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
               with:
                   name: ggufx-vulkan-linux-x64
-                  path: |
-                      build-vulkan/bin/libggml-vulkan.so
-                      build-vulkan/bin/libggml-cpu.so
-                      build-vulkan/bin/libggml-base.so
-                      build-vulkan/bin/libllama.so
+                  path: .publish/linux-x64/vulkan/*.so
                   retention-days: 90
 
     build-vulkan-linux-arm64:
@@ -293,46 +214,14 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Install OpenCL Dependencies
-              run: |
-                  sudo apt update
-                  sudo apt install -y \
-                    opencl-headers \
-                    ocl-icd-opencl-dev \
-                    clinfo
-
-            - name: Configure CMake
-              run: |
-                  cmake -B build-opencl \
-                    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-                    -DBUILD_SHARED_LIBS=ON \
-                    -DLLAMA_BUILD_TESTS=OFF \
-                    -DLLAMA_BUILD_EXAMPLES=OFF \
-                    -DLLAMA_BUILD_SERVER=OFF \
-                    -DGGML_BUILD_TESTS=OFF \
-                    -DGGML_BUILD_EXAMPLES=OFF \
-                    -DGGML_OPENCL=ON \
-                    -DLLAMA_CURL=OFF \
-                    -DCMAKE_C_FLAGS="-Os" \
-                    -DCMAKE_CXX_FLAGS="-Os"
-
             - name: Build
-              run: cmake --build build-opencl -j$(nproc)
-
-            - name: Strip Binaries
-              run: |
-                  strip --strip-unneeded build-opencl/bin/libggml-opencl.so
-                  ls -lh build-opencl/bin/
+              run: ./.scripts/build_linux_opencl.sh
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
               with:
                   name: ggufx-opencl-linux-x64
-                  path: |
-                      build-opencl/bin/libggml-opencl.so
-                      build-opencl/bin/libggml-cpu.so
-                      build-opencl/bin/libggml-base.so
-                      build-opencl/bin/libllama.so
+                  path: .publish/linux-x64/opencl/*.so
                   retention-days: 90
 
     build-opencl-windows:
@@ -343,30 +232,14 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Install OpenCL SDK
-              shell: cmd
-              run: |
-                  git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
-                  cd C:\vcpkg
-                  call bootstrap-vcpkg.bat
-                  vcpkg integrate install
-                  vcpkg install opencl:x64-windows
-                  echo VCPKG_ROOT=C:\vcpkg>> %GITHUB_ENV%
-
-            - name: Configure CMake
-              shell: cmd
-              run: cmake -B build-opencl -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_SERVER=OFF -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF -DGGML_OPENCL=ON -DLLAMA_CURL=OFF -DCMAKE_TOOLCHAIN_FILE="C:\vcpkg\scripts\buildsystems\vcpkg.cmake"
-
             - name: Build
-              shell: cmd
-              run: cmake --build build-opencl --config Release -j
+              run: .\.scripts\build_windows_opencl.ps1
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4
               with:
                   name: ggufx-opencl-win-x64
-                  path: |
-                      build-opencl/bin/Release/*.dll
+                  path: .publish/windows-x64/opencl/*.dll
                   retention-days: 90
 
     # ============================================================================
