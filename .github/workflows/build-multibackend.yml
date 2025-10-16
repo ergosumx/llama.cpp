@@ -284,7 +284,6 @@ jobs:
         name: Package Universal Build - Linux ARM64
         needs:
             - build-cpu-linux-arm64
-            - build-vulkan-linux-arm64
         runs-on: ubuntu-22.04
 
         steps:
@@ -299,9 +298,6 @@ jobs:
 
                   # Copy CPU backend (base)
                   cp artifacts/ggufx-cpu-linux-arm64/*.so universal/runtimes/linux-arm64/native/
-
-                  # Copy Vulkan backend
-                  cp artifacts/ggufx-vulkan-linux-arm64/*.so universal/runtimes/linux-arm64/native/ || echo "Vulkan build optional"
 
             - name: Show Package Contents
               run: |
@@ -434,104 +430,5 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: ggufx-universal-osx-arm64
-                  path: universal/
-                  retention-days: 90
-
-    package-universal-android:
-        name: Package Universal Build - Android ARM64
-        needs:
-            - build-android-arm64-vulkan
-        runs-on: ubuntu-22.04
-
-        steps:
-            - name: Download All Artifacts
-              uses: actions/download-artifact@v4
-              with:
-                  path: artifacts
-
-            - name: Create Package Structure
-              run: |
-                  mkdir -p universal/runtimes/android-arm64/native
-
-                  # Copy Vulkan backend (Android uses Vulkan for GPU acceleration)
-                  cp artifacts/ggufx-android-arm64-vulkan/*.so universal/runtimes/android-arm64/native/
-
-            - name: Show Package Contents
-              run: |
-                  ls -lh universal/runtimes/android-arm64/native/
-                  du -sh universal/runtimes/android-arm64/native/
-
-            - name: Create Checksums
-              run: |
-                  cd universal/runtimes/android-arm64/native
-                  sha256sum *.so > checksums.txt
-                  cat checksums.txt
-
-            - name: Create Android Integration README
-              run: |
-                  cat > universal/runtimes/android-arm64/README.md << 'EOF'
-                  # Android ARM64 Integration
-
-                  ## Integration Steps
-
-                  1. Copy all `.so` files to your Android project:
-                     ```
-                     app/src/main/jniLibs/arm64-v8a/
-                     ```
-
-                  2. Add to your `build.gradle`:
-                     ```gradle
-                     android {
-                         defaultConfig {
-                             minSdkVersion 24  // Android 7.0+
-                             ndk {
-                                 abiFilters 'arm64-v8a'
-                             }
-                         }
-                     }
-                     ```
-
-                  3. Load native library in your Java/Kotlin code:
-                     ```java
-                     static {
-                         System.loadLibrary("llama");
-                     }
-                     ```
-
-                  ## Requirements
-
-                  - **Minimum Android version**: 7.0 (API 24)
-                  - **Required hardware**: ARM64 device with Vulkan support
-                  - **Architecture**: arm64-v8a only
-
-                  ## Vulkan Support
-
-                  These libraries are built with Vulkan support for GPU acceleration.
-                  Most modern Android devices (2018+) support Vulkan.
-
-                  To check Vulkan support:
-                  ```java
-                  PackageManager pm = context.getPackageManager();
-                  boolean hasVulkan = pm.hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL, 1);
-                  ```
-
-                  ## Included Libraries
-
-                  - `libllama.so` - Main llama.cpp library
-                  - `libggml-vulkan.so` - Vulkan-accelerated GGML backend
-                  - `libggml-cpu.so` - CPU fallback backend
-                  - `libggml-base.so` - Base GGML library
-
-                  ## Notes
-
-                  - All libraries are stripped for minimal size
-                  - Built with Android NDK r26d
-                  - Vulkan provides significant performance improvements on supported devices
-                  EOF
-
-            - name: Upload Universal Package
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-universal-android-arm64
                   path: universal/
                   retention-days: 90
