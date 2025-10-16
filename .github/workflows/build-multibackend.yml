@@ -330,14 +330,66 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
+            - name: Cache Vulkan SDK
+              id: cache-vulkan
+              uses: actions/cache@v4
+              with:
+                  path: C:\VulkanSDK\1.3.275.0
+                  key: vulkan-sdk-1.3.275.0-windows
+
             - name: Install Vulkan SDK
+              if: steps.cache-vulkan.outputs.cache-hit != 'true'
               shell: powershell
               run: |
-                  # Download and install Vulkan SDK
-                  Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/1.3.275.0/windows/VulkanSDK-1.3.275.0-Installer.exe" -OutFile VulkanSDK.exe
+                  # Download Vulkan SDK with timeout and retries
+                  $maxRetries = 3
+                  $retryCount = 0
+                  $downloadSuccess = $false
+                  
+                  while (-not $downloadSuccess -and $retryCount -lt $maxRetries) {
+                      try {
+                          Write-Host "Download attempt $($retryCount + 1) of $maxRetries..."
+                          $ProgressPreference = 'SilentlyContinue'
+                          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/1.3.275.0/windows/VulkanSDK-1.3.275.0-Installer.exe" `
+                              -OutFile VulkanSDK.exe `
+                              -TimeoutSec 300 `
+                              -MaximumRetryCount 2
+                          
+                          if (Test-Path VulkanSDK.exe) {
+                              $fileSize = (Get-Item VulkanSDK.exe).Length / 1MB
+                              Write-Host "Downloaded successfully: $([math]::Round($fileSize, 2)) MB"
+                              $downloadSuccess = $true
+                          }
+                      }
+                      catch {
+                          Write-Host "Download failed: $_"
+                          $retryCount++
+                          if ($retryCount -lt $maxRetries) {
+                              Write-Host "Waiting 10 seconds before retry..."
+                              Start-Sleep -Seconds 10
+                          }
+                      }
+                  }
+                  
+                  if (-not $downloadSuccess) {
+                      throw "Failed to download Vulkan SDK after $maxRetries attempts"
+                  }
+                  
+                  # Install Vulkan SDK
+                  Write-Host "Installing Vulkan SDK..."
                   Start-Process -FilePath .\VulkanSDK.exe -ArgumentList "/S" -Wait
+                  
+                  # Verify installation
+                  if (-not (Test-Path "C:\VulkanSDK\1.3.275.0")) {
+                      throw "Vulkan SDK installation failed - directory not found"
+                  }
+                  
+                  Write-Host "Vulkan SDK installation complete"
 
-                  # Add to PATH
+            - name: Setup Vulkan Environment
+              shell: powershell
+              run: |
+                  # Add to PATH (works for both cached and fresh install)
                   $env:VULKAN_SDK = "C:\VulkanSDK\1.3.275.0"
                   $env:PATH = "$env:VULKAN_SDK\Bin;" + $env:PATH
                   echo "VULKAN_SDK=$env:VULKAN_SDK" >> $env:GITHUB_ENV
