@@ -34,17 +34,28 @@ if ! command -v glslc &> /dev/null; then
         libvulkan-dev \
         vulkan-tools \
         glslang-tools \
-        spirv-tools
+        spirv-tools \
+        shaderc || true
+
+    # Try to locate glslc (may be in non-standard location)
+    if [ -f "/usr/bin/glslc" ]; then
+        export PATH="/usr/bin:$PATH"
+    elif [ -f "/usr/local/bin/glslc" ]; then
+        export PATH="/usr/local/bin:$PATH"
+    fi
 
     echo "Installed Vulkan packages:"
-    dpkg -l | grep vulkan || true
-    echo "glslc location: $(which glslc || echo 'not found in PATH')"
+    dpkg -l | grep -E 'vulkan|glslang|shaderc' || true
 fi
 
 if command -v glslc &> /dev/null; then
+    echo "Found glslc: $(which glslc)"
     glslc --version
+elif command -v glslangValidator &> /dev/null; then
+    echo "Found glslangValidator: $(which glslangValidator)"
+    glslangValidator --version
 else
-    echo "WARNING: glslc still not available. Build may fail if Vulkan shaders need compilation."
+    echo "WARNING: Neither glslc nor glslangValidator found. Using runtime shader compilation."
 fi
 
 # Clean previous build
@@ -63,6 +74,7 @@ cmake -B "$BUILD_DIR" \
     -DGGML_BUILD_EXAMPLES=OFF \
     -DGGML_BUILD_TOOLS=OFF \
     -DGGML_VULKAN=ON \
+    -DGGML_VULKAN_RUN_TESTS=OFF \
     -DLLAMA_CURL=OFF \
     -DCMAKE_C_FLAGS="-Os" \
     -DCMAKE_CXX_FLAGS="-Os"

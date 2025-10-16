@@ -24,8 +24,19 @@ Write-Host "Build Dir:    $BuildDir"
 Write-Host "Publish Dir:  $PublishDir"
 Write-Host "============================================================================"
 
-# Note: OpenCL headers and libraries are typically installed via vcpkg or GPU vendor SDKs
-Write-Host "NOTE: Ensure OpenCL SDK is installed (Intel, AMD, or NVIDIA OpenCL)"
+# Install OpenCL SDK via vcpkg
+Write-Host "Installing OpenCL SDK via vcpkg..."
+$VcpkgRoot = "C:\vcpkg"
+
+if (-not (Test-Path $VcpkgRoot)) {
+    Write-Host "Cloning vcpkg..."
+    git clone https://github.com/Microsoft/vcpkg.git $VcpkgRoot
+    & "$VcpkgRoot\bootstrap-vcpkg.bat"
+}
+
+Write-Host "Installing OpenCL package..."
+& "$VcpkgRoot\vcpkg.exe" install opencl:x64-windows
+$env:VCPKG_ROOT = $VcpkgRoot
 
 # Clean previous build
 if (Test-Path $BuildDir) {
@@ -47,7 +58,8 @@ cmake -B $BuildDir `
     -DGGML_BUILD_EXAMPLES=OFF `
     -DGGML_BUILD_TOOLS=OFF `
     -DGGML_OPENCL=ON `
-    -DLLAMA_CURL=OFF
+    -DLLAMA_CURL=OFF `
+    -DCMAKE_TOOLCHAIN_FILE="$VcpkgRoot\scripts\buildsystems\vcpkg.cmake"
 
 # Build
 Write-Host ""

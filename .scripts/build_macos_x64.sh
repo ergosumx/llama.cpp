@@ -40,8 +40,11 @@ cmake -B "$BUILD_DIR" \
     -DGGML_BUILD_TESTS=OFF \
     -DGGML_BUILD_EXAMPLES=OFF \
     -DGGML_BUILD_TOOLS=OFF \
-    -DGGML_NATIVE=ON \
-    -DLLAMA_CURL=OFF
+    -DGGML_NATIVE=OFF \
+    -DGGML_CPU_ARM_ARCH=OFF \
+    -DLLAMA_CURL=OFF \
+    -DCMAKE_C_FLAGS="-arch x86_64 -march=x86-64" \
+    -DCMAKE_CXX_FLAGS="-arch x86_64 -march=x86-64"
 
 # Build
 echo ""
