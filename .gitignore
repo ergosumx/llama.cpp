@@ -108,6 +108,8 @@ tools/server/*.gz.hpp
 !examples/*/*/*.kts
 !examples/sycl/*.bat
 !examples/sycl/*.sh
+!.scripts/*.sh
+!.scripts/*.ps1
 
 # Server Web UI temporary files
 node_modules
