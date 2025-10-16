@@ -95,7 +95,7 @@ else
     echo "WARNING: glslc not found!"
     echo "For CI builds, ensure Vulkan SDK is installed in workflow."
     echo "For local builds, install with:"
-    echo "  sudo apt-get install -y libvulkan-dev glslang-tools libshaderc-dev"
+    echo "  sudo apt-get install -y libvulkan-dev glslang-tools spirv-tools"
     echo ""
     echo "Creating dummy glslc (may cause build failures)..."
     # Create dummy glslc as fallback (will likely fail during shader compilation)

@@ -1,597 +1,613 @@
 name: Build Multi-Backend
 
 on:
-    push:
-        branches: [main, develop, master]
-    pull_request:
-        branches: [main]
-    workflow_dispatch:
+  push:
+    branches: [main, develop, master]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 
 env:
-    BUILD_TYPE: Release
+  BUILD_TYPE: Release
 
 jobs:
-    # ============================================================================
-    # CPU Builds (All Platforms + ARM)
-    # ============================================================================
-
-    build-cpu-linux-x64:
-        name: CPU - Linux x64
-        runs-on: ubuntu-22.04
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Build
-              run: ./.scripts/build_linux_x64.sh
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-cpu-linux-x64
-                  path: .publish/linux-x64/cpu/*.so
-                  retention-days: 90
-
-    build-cpu-linux-arm64:
-        name: CPU - Linux ARM64
-        runs-on: ubuntu-22.04-arm
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Build
-              run: ./.scripts/build_linux_arm64.sh
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-cpu-linux-arm64
-                  path: .publish/linux-arm64/cpu/*.so
-                  retention-days: 90
-
-    build-cpu-windows-x64:
-        name: CPU - Windows x64
-        runs-on: windows-2022
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Build
-              run: .\.scripts\build_windows_x64.ps1
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-cpu-win-x64
-                  path: .publish/windows-x64/cpu/*.dll
-                  retention-days: 90
-
-    build-cpu-windows-arm64:
-        name: CPU - Windows ARM64
-        runs-on: windows-11-arm
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Build
-              run: .\.scripts\build_windows_arm64.ps1
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-cpu-win-arm64
-                  path: .publish/windows-arm64/cpu/*.dll
-                  retention-days: 90
-
-    build-cpu-macos:
-        name: CPU - macOS ARM64
-        runs-on: macos-14
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Build
-              run: ./.scripts/build_macos_x64.sh
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-cpu-osx-arm64
-                  path: .publish/macos-arm64/cpu/*.dylib
-                  retention-days: 90
-
-    # ============================================================================
-    # Metal Build (macOS ARM64)
-    # ============================================================================
-
-    build-metal-macos:
-        name: Metal - macOS ARM64
-        runs-on: macos-14
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Build
-              run: ./.scripts/build_macos_metal.sh
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-metal-osx-arm64
-                  path: .publish/macos-arm64/metal/*.dylib
-                  retention-days: 90
-
-    # ============================================================================
-    # Vulkan Builds (GitHub-Hosted Runners)
-    # ============================================================================
-
-    build-vulkan-linux:
-        name: Vulkan - Linux x64
-        runs-on: ubuntu-22.04
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Install Vulkan SDK
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y \
-                      libvulkan-dev \
-                      vulkan-tools \
-                      glslang-tools \
-                      spirv-tools \
-                      libshaderc-dev
-
-            - name: Verify Vulkan Installation
-              run: |
-                  echo "Vulkan packages installed:"
-                  dpkg -l | grep -E 'vulkan|glslang|shaderc'
-                  echo "glslc location: $(which glslc || echo 'not found')"
-                  glslc --version || echo "glslc not available"
-
-            - name: Build
-              run: ./.scripts/build_linux_vulkan.sh
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-vulkan-linux-x64
-                  path: .publish/linux-x64/vulkan/*.so
-                  retention-days: 90
-
-    build-vulkan-linux-arm64:
-        name: Vulkan - Linux ARM64
-        runs-on: ubuntu-22.04-arm
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Install Vulkan SDK
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y \
-                      libvulkan-dev \
-                      vulkan-tools \
-                      glslang-tools \
-                      spirv-tools \
-                      libshaderc-dev
-
-            - name: Verify Vulkan Installation
-              run: |
-                  echo "Vulkan packages installed:"
-                  dpkg -l | grep -E 'vulkan|glslang|shaderc'
-                  echo "glslc location: $(which glslc || echo 'not found')"
-                  glslc --version || echo "glslc not available"
-
-            - name: Build
-              run: ./.scripts/build_linux_arm64_vulkan.sh
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-vulkan-linux-arm64
-                  path: .publish/linux-arm64/vulkan/*.so
-                  retention-days: 90
-
-    # ============================================================================
-    # Android Builds (ARM64 with Vulkan)
-    # ============================================================================
-
-    build-android-arm64-vulkan:
-        name: Android ARM64 - Vulkan
-        runs-on: ubuntu-22.04
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Install Vulkan SDK (for shader compilation)
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y \
-                      libvulkan-dev \
-                      glslang-tools \
-                      libshaderc-dev
-
-            - name: Verify glslc Installation
-              run: |
-                  echo "glslc location: $(which glslc)"
-                  glslc --version
-
-            - name: Setup Android NDK
-              run: |
-                  # Download and setup Android NDK r26d
-                  NDK_VERSION="r26d"
-                  wget -q https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip
-                  unzip -q android-ndk-${NDK_VERSION}-linux.zip
-                  echo "ANDROID_NDK=$PWD/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
-
-            - name: Verify NDK Installation
-              run: |
-                  ls -la $ANDROID_NDK
-                  ls -la $ANDROID_NDK/build/cmake/
-
-            - name: Build
-              run: ./.scripts/build_android_arm64_vulkan.sh
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-android-arm64-vulkan
-                  path: .publish/android-arm64/vulkan/*.so
-                  retention-days: 90
-
-    # ============================================================================
-    # OpenCL Builds (All Platforms)
-    # ============================================================================
-
-    build-opencl-linux:
-        name: OpenCL - Linux x64
-        runs-on: ubuntu-22.04
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Build
-              run: ./.scripts/build_linux_opencl.sh
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-opencl-linux-x64
-                  path: .publish/linux-x64/opencl/*.so
-                  retention-days: 90
-
-    build-opencl-windows:
-        name: OpenCL - Windows x64
-        runs-on: windows-2022
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Build
-              run: .\.scripts\build_windows_opencl.ps1
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-opencl-win-x64
-                  path: .publish/windows-x64/opencl/*.dll
-                  retention-days: 90
-
-    # ============================================================================
-    # Package Universal Build (All Backends)
-    # ============================================================================
-
-    package-universal-linux-x64:
-        name: Package Universal Build - Linux x64
-        needs:
-            - build-cpu-linux-x64
-            - build-vulkan-linux
-            - build-opencl-linux
-        runs-on: ubuntu-22.04
-
-        steps:
-            - name: Download All Artifacts
-              uses: actions/download-artifact@v4
-              with:
-                  path: artifacts
-
-            - name: Create Package Structure
-              run: |
-                  mkdir -p universal/runtimes/linux-x64/native
-
-                  # Copy CPU backend (base)
-                  cp artifacts/ggufx-cpu-linux-x64/libllama.so universal/runtimes/linux-x64/native/
-                  cp artifacts/ggufx-cpu-linux-x64/libggml-base.so universal/runtimes/linux-x64/native/
-                  cp artifacts/ggufx-cpu-linux-x64/libggml-cpu.so universal/runtimes/linux-x64/native/
-
-                  # Copy Vulkan backend
-                  cp artifacts/ggufx-vulkan-linux-x64/libggml-vulkan.so universal/runtimes/linux-x64/native/ || echo "Vulkan build optional"
-
-                  # Copy OpenCL backend
-                  cp artifacts/ggufx-opencl-linux-x64/libggml-opencl.so universal/runtimes/linux-x64/native/ || echo "OpenCL build optional"
-
-            - name: Show Package Contents
-              run: |
-                  ls -lh universal/runtimes/linux-x64/native/
-                  du -sh universal/runtimes/linux-x64/native/
-
-            - name: Create Checksums
-              run: |
-                  cd universal/runtimes/linux-x64/native
-                  sha256sum *.so > checksums.txt
-                  cat checksums.txt
-
-            - name: Upload Universal Package
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-universal-linux-x64
-                  path: universal/
-                  retention-days: 90
-
-    package-universal-linux-arm64:
-        name: Package Universal Build - Linux ARM64
-        needs:
-            - build-cpu-linux-arm64
-            - build-vulkan-linux-arm64
-        runs-on: ubuntu-22.04
-
-        steps:
-            - name: Download All Artifacts
-              uses: actions/download-artifact@v4
-              with:
-                  path: artifacts
-
-            - name: Create Package Structure
-              run: |
-                  mkdir -p universal/runtimes/linux-arm64/native
-
-                  # Copy CPU backend (base)
-                  cp artifacts/ggufx-cpu-linux-arm64/*.so universal/runtimes/linux-arm64/native/
-
-                  # Copy Vulkan backend
-                  cp artifacts/ggufx-vulkan-linux-arm64/*.so universal/runtimes/linux-arm64/native/ || echo "Vulkan build optional"
-
-            - name: Show Package Contents
-              run: |
-                  ls -lh universal/runtimes/linux-arm64/native/
-                  du -sh universal/runtimes/linux-arm64/native/
-
-            - name: Create Checksums
-              run: |
-                  cd universal/runtimes/linux-arm64/native
-                  sha256sum *.so > checksums.txt
-                  cat checksums.txt
-
-            - name: Upload Universal Package
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-universal-linux-arm64
-                  path: universal/
-                  retention-days: 90
-
-    package-universal-windows-x64:
-        name: Package Universal Build - Windows x64
-        needs:
-            - build-cpu-windows-x64
-            - build-opencl-windows
-        runs-on: windows-2022
-
-        steps:
-            - name: Download All Artifacts
-              uses: actions/download-artifact@v4
-              with:
-                  path: artifacts
-
-            - name: Create Package Structure
-              shell: cmd
-              run: |
-                  mkdir universal\runtimes\win-x64\native
-                  copy artifacts\ggufx-cpu-win-x64\*.dll universal\runtimes\win-x64\native\
-                  copy artifacts\ggufx-opencl-win-x64\*.dll universal\runtimes\win-x64\native\ 2>nul || echo "OpenCL artifacts not found (optional)"
-
-            - name: Show Package Contents
-              shell: cmd
-              run: dir /s universal\runtimes\win-x64\native\
-
-            - name: Create Checksums
-              shell: cmd
-              run: |
-                  cd universal\runtimes\win-x64\native
-                  for %%f in (*.dll) do certutil -hashfile "%%f" SHA256 | find /v ":" >> checksums.txt
-                  type checksums.txt
-
-            - name: Upload Universal Package
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-universal-win-x64
-                  path: universal/
-                  retention-days: 90
-
-    package-universal-windows-arm64:
-        name: Package Universal Build - Windows ARM64
-        needs:
-            - build-cpu-windows-arm64
-        runs-on: windows-2022
-
-        steps:
-            - name: Download All Artifacts
-              uses: actions/download-artifact@v4
-              with:
-                  path: artifacts
-
-            - name: Create Package Structure
-              shell: cmd
-              run: |
-                  mkdir universal\runtimes\win-arm64\native
-                  copy artifacts\ggufx-cpu-win-arm64\*.dll universal\runtimes\win-arm64\native\
-
-            - name: Show Package Contents
-              shell: cmd
-              run: dir /s universal\runtimes\win-arm64\native\
-
-            - name: Create Checksums
-              shell: cmd
-              run: |
-                  cd universal\runtimes\win-arm64\native
-                  for %%f in (*.dll) do certutil -hashfile "%%f" SHA256 | find /v ":" >> checksums.txt
-                  type checksums.txt
-
-            - name: Upload Universal Package
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-universal-win-arm64
-                  path: universal/
-                  retention-days: 90
-
-    package-universal-macos:
-        name: Package Universal Build - macOS
-        needs:
-            - build-cpu-macos
-            - build-metal-macos
-        runs-on: macos-14
-
-        steps:
-            - name: Download All Artifacts
-              uses: actions/download-artifact@v4
-              with:
-                  path: artifacts
-
-            - name: Create Package Structure
-              run: |
-                  mkdir -p universal/runtimes/osx-arm64/native
-
-                  # Copy CPU backend (base)
-                  cp artifacts/ggufx-cpu-osx-arm64/*.dylib universal/runtimes/osx-arm64/native/
-
-                  # Copy Metal backend
-                  cp artifacts/ggufx-metal-osx-arm64/*.dylib universal/runtimes/osx-arm64/native/ || echo "Metal build optional"
-                  cp artifacts/ggufx-metal-osx-arm64/*.metal universal/runtimes/osx-arm64/native/ || echo "Metal shaders optional"
-
-            - name: Show Package Contents
-              run: |
-                  ls -lh universal/runtimes/osx-arm64/native/
-                  du -sh universal/runtimes/osx-arm64/native/
-
-            - name: Create Checksums
-              run: |
-                  cd universal/runtimes/osx-arm64/native
-                  shasum -a 256 * > checksums.txt
-                  cat checksums.txt
-
-            - name: Upload Universal Package
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-universal-osx-arm64
-                  path: universal/
-                  retention-days: 90
-
-    package-universal-android:
-        name: Package Universal Build - Android ARM64
-        needs:
-            - build-android-arm64-vulkan
-        runs-on: ubuntu-22.04
-
-        steps:
-            - name: Download All Artifacts
-              uses: actions/download-artifact@v4
-              with:
-                  path: artifacts
-
-            - name: Create Package Structure
-              run: |
-                  mkdir -p universal/runtimes/android-arm64/native
-
-                  # Copy Vulkan backend (Android uses Vulkan for GPU acceleration)
-                  cp artifacts/ggufx-android-arm64-vulkan/*.so universal/runtimes/android-arm64/native/
-
-            - name: Show Package Contents
-              run: |
-                  ls -lh universal/runtimes/android-arm64/native/
-                  du -sh universal/runtimes/android-arm64/native/
-
-            - name: Create Checksums
-              run: |
-                  cd universal/runtimes/android-arm64/native
-                  sha256sum *.so > checksums.txt
-                  cat checksums.txt
-
-            - name: Create Android Integration README
-              run: |
-                  cat > universal/runtimes/android-arm64/README.md << 'EOF'
-                  # Android ARM64 Integration
-
-                  ## Integration Steps
-
-                  1. Copy all `.so` files to your Android project:
-                     ```
-                     app/src/main/jniLibs/arm64-v8a/
-                     ```
-
-                  2. Add to your `build.gradle`:
-                     ```gradle
-                     android {
-                         defaultConfig {
-                             minSdkVersion 24  // Android 7.0+
-                             ndk {
-                                 abiFilters 'arm64-v8a'
-                             }
-                         }
+  # ============================================================================
+  # CPU Builds (All Platforms + ARM)
+  # ============================================================================
+
+  build-cpu-linux-x64:
+    name: CPU - Linux x64
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: ./.scripts/build_linux_x64.sh
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-cpu-linux-x64
+          path: .publish/linux-x64/cpu/*.so
+          retention-days: 90
+
+  build-cpu-linux-arm64:
+    name: CPU - Linux ARM64
+    runs-on: ubuntu-22.04-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: ./.scripts/build_linux_arm64.sh
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-cpu-linux-arm64
+          path: .publish/linux-arm64/cpu/*.so
+          retention-days: 90
+
+  build-cpu-windows-x64:
+    name: CPU - Windows x64
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: .\.scripts\build_windows_x64.ps1
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-cpu-win-x64
+          path: .publish/windows-x64/cpu/*.dll
+          retention-days: 90
+
+  build-cpu-windows-arm64:
+    name: CPU - Windows ARM64
+    runs-on: windows-11-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: .\.scripts\build_windows_arm64.ps1
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-cpu-win-arm64
+          path: .publish/windows-arm64/cpu/*.dll
+          retention-days: 90
+
+  build-cpu-macos:
+    name: CPU - macOS ARM64
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: ./.scripts/build_macos_x64.sh
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-cpu-osx-arm64
+          path: .publish/macos-arm64/cpu/*.dylib
+          retention-days: 90
+
+  # ============================================================================
+  # Metal Build (macOS ARM64)
+  # ============================================================================
+
+  build-metal-macos:
+    name: Metal - macOS ARM64
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: ./.scripts/build_macos_metal.sh
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-metal-osx-arm64
+          path: .publish/macos-arm64/metal/*.dylib
+          retention-days: 90
+
+  # ============================================================================
+  # Vulkan Builds (GitHub-Hosted Runners)
+  # ============================================================================
+
+  build-vulkan-linux:
+    name: Vulkan - Linux x64
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Vulkan SDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+              libvulkan-dev \
+              vulkan-tools \
+              glslang-tools \
+              spirv-tools
+
+      - name: Verify Vulkan Installation
+        run: |
+          echo "Vulkan packages installed:"
+          dpkg -l | grep -E 'vulkan|glslang'
+          echo "glslc location: $(which glslc || which glslangValidator || echo 'not found')"
+          if command -v glslc &> /dev/null; then
+              glslc --version
+          elif command -v glslangValidator &> /dev/null; then
+              glslangValidator --version
+          else
+              echo "WARNING: No shader compiler found"
+          fi
+
+      - name: Build
+        run: ./.scripts/build_linux_vulkan.sh
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-vulkan-linux-x64
+          path: .publish/linux-x64/vulkan/*.so
+          retention-days: 90
+
+  build-vulkan-linux-arm64:
+    name: Vulkan - Linux ARM64
+    runs-on: ubuntu-22.04-arm
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Vulkan SDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+              libvulkan-dev \
+              vulkan-tools \
+              glslang-tools \
+              spirv-tools
+
+      - name: Verify Vulkan Installation
+        run: |
+          echo "Vulkan packages installed:"
+          dpkg -l | grep -E 'vulkan|glslang'
+          echo "glslc location: $(which glslc || which glslangValidator || echo 'not found')"
+          if command -v glslc &> /dev/null; then
+              glslc --version
+          elif command -v glslangValidator &> /dev/null; then
+              glslangValidator --version
+          else
+              echo "WARNING: No shader compiler found"
+          fi
+
+      - name: Build
+        run: ./.scripts/build_linux_arm64_vulkan.sh
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-vulkan-linux-arm64
+          path: .publish/linux-arm64/vulkan/*.so
+          retention-days: 90
+
+  # ============================================================================
+  # Android Builds (ARM64 with Vulkan)
+  # ============================================================================
+
+  build-android-arm64-vulkan:
+    name: Android ARM64 - Vulkan
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Vulkan SDK (for shader compilation)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+              libvulkan-dev \
+              glslang-tools \
+              spirv-tools
+
+      - name: Verify glslc Installation
+        run: |
+          echo "glslc location: $(which glslc || which glslangValidator || echo 'not found')"
+          if command -v glslc &> /dev/null; then
+              glslc --version
+          elif command -v glslangValidator &> /dev/null; then
+              glslangValidator --version
+          else
+              echo "WARNING: No shader compiler found"
+          fi
+
+      - name: Setup Android NDK
+        run: |
+          # Download and setup Android NDK r26d
+          NDK_VERSION="r26d"
+          wget -q https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip
+          unzip -q android-ndk-${NDK_VERSION}-linux.zip
+          echo "ANDROID_NDK=$PWD/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
+
+      - name: Verify NDK Installation
+        run: |
+          ls -la $ANDROID_NDK
+          ls -la $ANDROID_NDK/build/cmake/
+
+      - name: Build
+        run: ./.scripts/build_android_arm64_vulkan.sh
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-android-arm64-vulkan
+          path: .publish/android-arm64/vulkan/*.so
+          retention-days: 90
+
+  # ============================================================================
+  # OpenCL Builds (All Platforms)
+  # ============================================================================
+
+  build-opencl-linux:
+    name: OpenCL - Linux x64
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: ./.scripts/build_linux_opencl.sh
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-opencl-linux-x64
+          path: .publish/linux-x64/opencl/*.so
+          retention-days: 90
+
+  build-opencl-windows:
+    name: OpenCL - Windows x64
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build
+        run: .\.scripts\build_windows_opencl.ps1
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-opencl-win-x64
+          path: .publish/windows-x64/opencl/*.dll
+          retention-days: 90
+
+  # ============================================================================
+  # Package Universal Build (All Backends)
+  # ============================================================================
+
+  package-universal-linux-x64:
+    name: Package Universal Build - Linux x64
+    needs:
+      - build-cpu-linux-x64
+      - build-vulkan-linux
+      - build-opencl-linux
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Package Structure
+        run: |
+          mkdir -p universal/runtimes/linux-x64/native
+
+          # Copy CPU backend (base)
+          cp artifacts/ggufx-cpu-linux-x64/libllama.so universal/runtimes/linux-x64/native/
+          cp artifacts/ggufx-cpu-linux-x64/libggml-base.so universal/runtimes/linux-x64/native/
+          cp artifacts/ggufx-cpu-linux-x64/libggml-cpu.so universal/runtimes/linux-x64/native/
+
+          # Copy Vulkan backend
+          cp artifacts/ggufx-vulkan-linux-x64/libggml-vulkan.so universal/runtimes/linux-x64/native/ || echo "Vulkan build optional"
+
+          # Copy OpenCL backend
+          cp artifacts/ggufx-opencl-linux-x64/libggml-opencl.so universal/runtimes/linux-x64/native/ || echo "OpenCL build optional"
+
+      - name: Show Package Contents
+        run: |
+          ls -lh universal/runtimes/linux-x64/native/
+          du -sh universal/runtimes/linux-x64/native/
+
+      - name: Create Checksums
+        run: |
+          cd universal/runtimes/linux-x64/native
+          sha256sum *.so > checksums.txt
+          cat checksums.txt
+
+      - name: Upload Universal Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-universal-linux-x64
+          path: universal/
+          retention-days: 90
+
+  package-universal-linux-arm64:
+    name: Package Universal Build - Linux ARM64
+    needs:
+      - build-cpu-linux-arm64
+      - build-vulkan-linux-arm64
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Package Structure
+        run: |
+          mkdir -p universal/runtimes/linux-arm64/native
+
+          # Copy CPU backend (base)
+          cp artifacts/ggufx-cpu-linux-arm64/*.so universal/runtimes/linux-arm64/native/
+
+          # Copy Vulkan backend
+          cp artifacts/ggufx-vulkan-linux-arm64/*.so universal/runtimes/linux-arm64/native/ || echo "Vulkan build optional"
+
+      - name: Show Package Contents
+        run: |
+          ls -lh universal/runtimes/linux-arm64/native/
+          du -sh universal/runtimes/linux-arm64/native/
+
+      - name: Create Checksums
+        run: |
+          cd universal/runtimes/linux-arm64/native
+          sha256sum *.so > checksums.txt
+          cat checksums.txt
+
+      - name: Upload Universal Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-universal-linux-arm64
+          path: universal/
+          retention-days: 90
+
+  package-universal-windows-x64:
+    name: Package Universal Build - Windows x64
+    needs:
+      - build-cpu-windows-x64
+      - build-opencl-windows
+    runs-on: windows-2022
+
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Package Structure
+        shell: cmd
+        run: |
+          mkdir universal\runtimes\win-x64\native
+          copy artifacts\ggufx-cpu-win-x64\*.dll universal\runtimes\win-x64\native\
+          copy artifacts\ggufx-opencl-win-x64\*.dll universal\runtimes\win-x64\native\ 2>nul || echo "OpenCL artifacts not found (optional)"
+
+      - name: Show Package Contents
+        shell: cmd
+        run: dir /s universal\runtimes\win-x64\native\
+
+      - name: Create Checksums
+        shell: cmd
+        run: |
+          cd universal\runtimes\win-x64\native
+          for %%f in (*.dll) do certutil -hashfile "%%f" SHA256 | find /v ":" >> checksums.txt
+          type checksums.txt
+
+      - name: Upload Universal Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-universal-win-x64
+          path: universal/
+          retention-days: 90
+
+  package-universal-windows-arm64:
+    name: Package Universal Build - Windows ARM64
+    needs:
+      - build-cpu-windows-arm64
+    runs-on: windows-2022
+
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Package Structure
+        shell: cmd
+        run: |
+          mkdir universal\runtimes\win-arm64\native
+          copy artifacts\ggufx-cpu-win-arm64\*.dll universal\runtimes\win-arm64\native\
+
+      - name: Show Package Contents
+        shell: cmd
+        run: dir /s universal\runtimes\win-arm64\native\
+
+      - name: Create Checksums
+        shell: cmd
+        run: |
+          cd universal\runtimes\win-arm64\native
+          for %%f in (*.dll) do certutil -hashfile "%%f" SHA256 | find /v ":" >> checksums.txt
+          type checksums.txt
+
+      - name: Upload Universal Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-universal-win-arm64
+          path: universal/
+          retention-days: 90
+
+  package-universal-macos:
+    name: Package Universal Build - macOS
+    needs:
+      - build-cpu-macos
+      - build-metal-macos
+    runs-on: macos-14
+
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Package Structure
+        run: |
+          mkdir -p universal/runtimes/osx-arm64/native
+
+          # Copy CPU backend (base)
+          cp artifacts/ggufx-cpu-osx-arm64/*.dylib universal/runtimes/osx-arm64/native/
+
+          # Copy Metal backend
+          cp artifacts/ggufx-metal-osx-arm64/*.dylib universal/runtimes/osx-arm64/native/ || echo "Metal build optional"
+          cp artifacts/ggufx-metal-osx-arm64/*.metal universal/runtimes/osx-arm64/native/ || echo "Metal shaders optional"
+
+      - name: Show Package Contents
+        run: |
+          ls -lh universal/runtimes/osx-arm64/native/
+          du -sh universal/runtimes/osx-arm64/native/
+
+      - name: Create Checksums
+        run: |
+          cd universal/runtimes/osx-arm64/native
+          shasum -a 256 * > checksums.txt
+          cat checksums.txt
+
+      - name: Upload Universal Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-universal-osx-arm64
+          path: universal/
+          retention-days: 90
+
+  package-universal-android:
+    name: Package Universal Build - Android ARM64
+    needs:
+      - build-android-arm64-vulkan
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Package Structure
+        run: |
+          mkdir -p universal/runtimes/android-arm64/native
+
+          # Copy Vulkan backend (Android uses Vulkan for GPU acceleration)
+          cp artifacts/ggufx-android-arm64-vulkan/*.so universal/runtimes/android-arm64/native/
+
+      - name: Show Package Contents
+        run: |
+          ls -lh universal/runtimes/android-arm64/native/
+          du -sh universal/runtimes/android-arm64/native/
+
+      - name: Create Checksums
+        run: |
+          cd universal/runtimes/android-arm64/native
+          sha256sum *.so > checksums.txt
+          cat checksums.txt
+
+      - name: Create Android Integration README
+        run: |
+          cat > universal/runtimes/android-arm64/README.md << 'EOF'
+          # Android ARM64 Integration
+
+          ## Integration Steps
+
+          1. Copy all `.so` files to your Android project:
+             ```
+             app/src/main/jniLibs/arm64-v8a/
+             ```
+
+          2. Add to your `build.gradle`:
+             ```gradle
+             android {
+                 defaultConfig {
+                     minSdkVersion 24  // Android 7.0+
+                     ndk {
+                         abiFilters 'arm64-v8a'
                      }
-                     ```
+                 }
+             }
+             ```
 
-                  3. Load native library in your Java/Kotlin code:
-                     ```java
-                     static {
-                         System.loadLibrary("llama");
-                     }
-                     ```
+          3. Load native library in your Java/Kotlin code:
+             ```java
+             static {
+                 System.loadLibrary("llama");
+             }
+             ```
 
-                  ## Requirements
+          ## Requirements
 
-                  - **Minimum Android version**: 7.0 (API 24)
-                  - **Required hardware**: ARM64 device with Vulkan support
-                  - **Architecture**: arm64-v8a only
+          - **Minimum Android version**: 7.0 (API 24)
+          - **Required hardware**: ARM64 device with Vulkan support
+          - **Architecture**: arm64-v8a only
 
-                  ## Vulkan Support
+          ## Vulkan Support
 
-                  These libraries are built with Vulkan support for GPU acceleration.
-                  Most modern Android devices (2018+) support Vulkan.
+          These libraries are built with Vulkan support for GPU acceleration.
+          Most modern Android devices (2018+) support Vulkan.
 
-                  To check Vulkan support:
-                  ```java
-                  PackageManager pm = context.getPackageManager();
-                  boolean hasVulkan = pm.hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL, 1);
-                  ```
+          To check Vulkan support:
+          ```java
+          PackageManager pm = context.getPackageManager();
+          boolean hasVulkan = pm.hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL, 1);
+          ```
 
-                  ## Included Libraries
+          ## Included Libraries
 
-                  - `libllama.so` - Main llama.cpp library
-                  - `libggml-vulkan.so` - Vulkan-accelerated GGML backend
-                  - `libggml-cpu.so` - CPU fallback backend
-                  - `libggml-base.so` - Base GGML library
+          - `libllama.so` - Main llama.cpp library
+          - `libggml-vulkan.so` - Vulkan-accelerated GGML backend
+          - `libggml-cpu.so` - CPU fallback backend
+          - `libggml-base.so` - Base GGML library
 
-                  ## Notes
+          ## Notes
 
-                  - All libraries are stripped for minimal size
-                  - Built with Android NDK r26d
-                  - Vulkan provides significant performance improvements on supported devices
-                  EOF
+          - All libraries are stripped for minimal size
+          - Built with Android NDK r26d
+          - Vulkan provides significant performance improvements on supported devices
+          EOF
 
-            - name: Upload Universal Package
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-universal-android-arm64
-                  path: universal/
-                  retention-days: 90
+      - name: Upload Universal Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ggufx-universal-android-arm64
+          path: universal/
+          retention-days: 90
