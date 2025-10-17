@@ -11,20 +11,23 @@ No files were found with the provided path: .publish/{platform}/{backend}/*.{so,
 ## Root Cause
 
 The workflow was copying library files from **incorrect source paths**:
-- ❌ Old: `build/src/libllama.so`
-- ❌ Old: `build/ggml/src/libggml-*.so`
-- ❌ Old: `build/ggml/src/ggml-{backend}/libggml-{backend}.so`
+
+-   ❌ Old: `build/src/libllama.so`
+-   ❌ Old: `build/ggml/src/libggml-*.so`
+-   ❌ Old: `build/ggml/src/ggml-{backend}/libggml-{backend}.so`
 
 But llama.cpp's CMake build system actually outputs all libraries to:
-- ✅ Correct: `build/bin/libllama.so`
-- ✅ Correct: `build/bin/libggml-*.so`
-- ✅ Correct: `build/bin/libggml-{backend}.so`
+
+-   ✅ Correct: `build/bin/libllama.so`
+-   ✅ Correct: `build/bin/libggml-*.so`
+-   ✅ Correct: `build/bin/libggml-{backend}.so`
 
 ## Solution
 
 Updated all copy commands in the workflow to use `build/bin/` as the source directory:
 
 ### Linux Builds (x64, ARM64, ARM32)
+
 ```bash
 # Before
 cp build/src/libllama.so .publish/linux-*/
@@ -36,6 +39,7 @@ cp build/bin/libggml-base.so .publish/linux-*/
 ```
 
 ### macOS Builds
+
 ```bash
 # Before
 cp build/src/libllama.dylib .publish/macos-*/
@@ -47,6 +51,7 @@ cp build/bin/libggml-base.dylib .publish/macos-*/
 ```
 
 ### Android Builds
+
 ```bash
 # Before
 cp build/src/libllama.so .publish/android-*/
@@ -58,15 +63,17 @@ cp build/bin/libggml-*.so .publish/android-*/
 ```
 
 ### Backend Libraries
+
 All backend-specific libraries also moved:
 
-| Backend | Old Path | New Path |
-|---------|----------|----------|
-| Vulkan | `build/ggml/src/ggml-vulkan/libggml-vulkan.so` | `build/bin/libggml-vulkan.so` |
-| OpenCL | `build/ggml/src/libggml-opencl.so` | `build/bin/libggml-opencl.so` |
-| Metal | `build/ggml/src/ggml-metal/libggml-metal.dylib` | `build/bin/libggml-metal.dylib` |
+| Backend | Old Path                                        | New Path                        |
+| ------- | ----------------------------------------------- | ------------------------------- |
+| Vulkan  | `build/ggml/src/ggml-vulkan/libggml-vulkan.so`  | `build/bin/libggml-vulkan.so`   |
+| OpenCL  | `build/ggml/src/libggml-opencl.so`              | `build/bin/libggml-opencl.so`   |
+| Metal   | `build/ggml/src/ggml-metal/libggml-metal.dylib` | `build/bin/libggml-metal.dylib` |
 
 ### Metal Shader File
+
 ```bash
 # Before
 cp build/ggml/src/ggml-metal/ggml-metal.metal .publish/macos-arm64/metal/
@@ -96,6 +103,7 @@ All 13 build jobs were updated:
 ## Verification
 
 The fix was verified by:
+
 1. Checking actual build output locations locally: `find build* -name "*.so"`
 2. Confirming all libraries are in `build/bin/` directory
 3. Validating YAML syntax: ✅ Valid
@@ -103,27 +111,28 @@ The fix was verified by:
 ## Expected Result
 
 After this fix, all build jobs should successfully:
+
 1. Build the libraries
 2. Copy them to `.publish/{platform}/{backend}/` directory
 3. Upload them as artifacts with proper names like `ggufx-{platform}-{backend}`
 
 ## Artifact Sizes (Expected)
 
-| Platform | Backend | Libraries | Approx Size |
-|----------|---------|-----------|-------------|
-| Linux x64 | CPU | llama, ggml-base, ggml-cpu | ~5-8 MB |
-| Linux x64 | Vulkan | + ggml-vulkan | ~8-12 MB |
-| Linux x64 | OpenCL | + ggml-opencl | ~8-12 MB |
-| Linux ARM64 | CPU | llama, ggml-base, ggml-cpu | ~5-8 MB |
-| Linux ARM32 | CPU | llama, ggml-base, ggml-cpu | ~3-5 MB |
-| Android ARM64 | CPU | llama, ggml-base, ggml-cpu | ~10-15 MB |
-| Android ARM64 | Vulkan | + ggml-vulkan | ~15-20 MB |
-| Windows x64 | CPU | llama, ggml-base, ggml-cpu | ~8-12 MB |
-| Windows x64 | Vulkan | + ggml-vulkan | ~12-18 MB |
-| Windows x64 | OpenCL | + ggml-opencl | ~12-18 MB |
-| macOS ARM64 | CPU | llama, ggml-base, ggml-cpu | ~6-10 MB |
-| macOS ARM64 | Metal | + ggml-metal + .metal | ~10-15 MB |
-| macOS x64 | CPU | llama, ggml-base, ggml-cpu | ~6-10 MB |
+| Platform      | Backend | Libraries                  | Approx Size |
+| ------------- | ------- | -------------------------- | ----------- |
+| Linux x64     | CPU     | llama, ggml-base, ggml-cpu | ~5-8 MB     |
+| Linux x64     | Vulkan  | + ggml-vulkan              | ~8-12 MB    |
+| Linux x64     | OpenCL  | + ggml-opencl              | ~8-12 MB    |
+| Linux ARM64   | CPU     | llama, ggml-base, ggml-cpu | ~5-8 MB     |
+| Linux ARM32   | CPU     | llama, ggml-base, ggml-cpu | ~3-5 MB     |
+| Android ARM64 | CPU     | llama, ggml-base, ggml-cpu | ~10-15 MB   |
+| Android ARM64 | Vulkan  | + ggml-vulkan              | ~15-20 MB   |
+| Windows x64   | CPU     | llama, ggml-base, ggml-cpu | ~8-12 MB    |
+| Windows x64   | Vulkan  | + ggml-vulkan              | ~12-18 MB   |
+| Windows x64   | OpenCL  | + ggml-opencl              | ~12-18 MB   |
+| macOS ARM64   | CPU     | llama, ggml-base, ggml-cpu | ~6-10 MB    |
+| macOS ARM64   | Metal   | + ggml-metal + .metal      | ~10-15 MB   |
+| macOS x64     | CPU     | llama, ggml-base, ggml-cpu | ~6-10 MB    |
 
 ## Windows Note
 
@@ -132,6 +141,7 @@ Windows builds use `build/bin/Release/` path (not `build/bin/`) which was alread
 ## Testing
 
 To test locally:
+
 ```bash
 # Build and check output location
 cmake -B build -DBUILD_SHARED_LIBS=ON
@@ -146,7 +156,7 @@ ls -lh build/bin/
 
 ## Files Modified
 
-- `.github/workflows/build-multibackend-v2.yml` - All Linux, macOS, and Android jobs updated
+-   `.github/workflows/build-multibackend-v2.yml` - All Linux, macOS, and Android jobs updated
 
 ## Status
 
