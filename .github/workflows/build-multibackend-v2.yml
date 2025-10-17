@@ -1,0 +1,399 @@
+name: Build Multi-Backend
+
+on:
+    push:
+        branches: [main, develop, master]
+    pull_request:
+        branches: [main]
+    workflow_dispatch:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
+    cancel-in-progress: true
+
+env:
+    VULKAN_VERSION: 1.4.313.2
+
+jobs:
+    # ============================================================================
+    # Linux x64 Builds
+    # ============================================================================
+
+    linux-x64-cpu:
+        name: Linux x64 - CPU
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build (Runtime Only)
+              run: |
+                  mkdir -p .publish/linux-x64/cpu
+                  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
+                      -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu -j $(nproc)
+                  cp build/src/libllama.so .publish/linux-x64/cpu/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-base.so .publish/linux-x64/cpu/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-cpu.so .publish/linux-x64/cpu/ 2>/dev/null || true
+                  ls -lh .publish/linux-x64/cpu/
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-linux-x64-cpu
+                  path: .publish/linux-x64/cpu/*.so
+                  retention-days: 90
+
+    linux-x64-vulkan:
+        name: Linux x64 - Vulkan
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Get latest Vulkan SDK version
+              run: |
+                  echo "VULKAN_SDK_VERSION=$(curl -s https://vulkan.lunarg.com/sdk/latest/linux.txt)" >> $GITHUB_ENV
+
+            - name: Use Vulkan SDK Cache
+              uses: actions/cache@v4
+              id: cache-sdk
+              with:
+                  path: ./vulkan_sdk
+                  key: vulkan-sdk-${{ env.VULKAN_SDK_VERSION }}-${{ runner.os }}
+
+            - name: Setup Vulkan SDK
+              if: steps.cache-sdk.outputs.cache-hit != 'true'
+              uses: ./.github/actions/linux-setup-vulkan
+              with:
+                  path: ./vulkan_sdk
+                  version: ${{ env.VULKAN_SDK_VERSION }}
+
+            - name: Build (Runtime Only)
+              run: |
+                  source ./vulkan_sdk/setup-env.sh
+                  mkdir -p .publish/linux-x64/vulkan
+                  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
+                      -DGGML_BUILD_TOOLS=OFF -DGGML_VULKAN=ON -DLLAMA_CURL=OFF
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu ggml-vulkan -j $(nproc)
+                  cp build/src/libllama.so .publish/linux-x64/vulkan/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-base.so .publish/linux-x64/vulkan/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-cpu.so .publish/linux-x64/vulkan/ 2>/dev/null || true
+                  cp build/ggml/src/ggml-vulkan/libggml-vulkan.so .publish/linux-x64/vulkan/ 2>/dev/null || true
+                  ls -lh .publish/linux-x64/vulkan/
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-linux-x64-vulkan
+                  path: .publish/linux-x64/vulkan/*.so
+                  retention-days: 90
+
+    linux-x64-opencl:
+        name: Linux x64 - OpenCL
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install Dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y ocl-icd-opencl-dev opencl-headers
+
+            - name: Build (Runtime Only)
+              run: |
+                  mkdir -p .publish/linux-x64/opencl
+                  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
+                      -DGGML_BUILD_TOOLS=OFF -DGGML_OPENCL=ON -DLLAMA_CURL=OFF
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu ggml-opencl -j $(nproc)
+                  cp build/src/libllama.so .publish/linux-x64/opencl/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-base.so .publish/linux-x64/opencl/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-cpu.so .publish/linux-x64/opencl/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-opencl.so .publish/linux-x64/opencl/ 2>/dev/null || true
+                  ls -lh .publish/linux-x64/opencl/
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-linux-x64-opencl
+                  path: .publish/linux-x64/opencl/*.so
+                  retention-days: 90
+
+    # ============================================================================
+    # Linux ARM64 Build
+    # ============================================================================
+
+    linux-arm64-cpu:
+        name: Linux ARM64 - CPU
+        runs-on: ubuntu-22.04-arm
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build (Runtime Only)
+              run: |
+                  mkdir -p .publish/linux-arm64/cpu
+                  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
+                      -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu -j $(nproc)
+                  cp build/src/libllama.so .publish/linux-arm64/cpu/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-base.so .publish/linux-arm64/cpu/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-cpu.so .publish/linux-arm64/cpu/ 2>/dev/null || true
+                  ls -lh .publish/linux-arm64/cpu/
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-linux-arm64-cpu
+                  path: .publish/linux-arm64/cpu/*.so
+                  retention-days: 90
+
+    # ============================================================================
+    # Windows x64 Builds
+    # ============================================================================
+
+    windows-x64-cpu:
+        name: Windows x64 - CPU
+        runs-on: windows-2022
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build (Runtime Only)
+              run: |
+                  New-Item -ItemType Directory -Force -Path .publish/windows-x64/cpu
+                  cmake -B build -G "Visual Studio 17 2022" -A x64 `
+                      -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF `
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF `
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF `
+                      -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu -j $env:NUMBER_OF_PROCESSORS
+                  Copy-Item build/bin/Release/llama.dll .publish/windows-x64/cpu/ -ErrorAction SilentlyContinue
+                  Copy-Item build/bin/Release/ggml-base.dll .publish/windows-x64/cpu/ -ErrorAction SilentlyContinue
+                  Copy-Item build/bin/Release/ggml-cpu.dll .publish/windows-x64/cpu/ -ErrorAction SilentlyContinue
+                  Get-ChildItem .publish/windows-x64/cpu/
+              shell: powershell
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-windows-x64-cpu
+                  path: .publish/windows-x64/cpu/*.dll
+                  retention-days: 90
+
+    windows-x64-vulkan:
+        name: Windows x64 - Vulkan
+        runs-on: windows-2022
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install Vulkan SDK
+              uses: ./.github/actions/install-exe
+              with:
+                  url: https://sdk.lunarg.com/sdk/download/${{ env.VULKAN_VERSION }}/windows/vulkansdk-windows-x64-${{ env.VULKAN_VERSION }}.exe
+                  args: --accept-licenses --default-answer --confirm-command install
+
+            - name: Setup Vulkan Environment
+              run: |
+                  Add-Content $env:GITHUB_ENV "VULKAN_SDK=C:\VulkanSDK\$env:VULKAN_VERSION"
+                  Add-Content $env:GITHUB_PATH "C:\VulkanSDK\$env:VULKAN_VERSION\Bin"
+              shell: powershell
+
+            - name: Verify Vulkan SDK
+              run: |
+                  Write-Host "VULKAN_SDK: $env:VULKAN_SDK"
+                  if (Test-Path "$env:VULKAN_SDK\Bin\glslc.exe") {
+                      & "$env:VULKAN_SDK\Bin\glslc.exe" --version
+                  } else {
+                      Write-Error "glslc.exe not found"
+                      exit 1
+                  }
+              shell: powershell
+
+            - name: Build (Runtime Only)
+              run: |
+                  New-Item -ItemType Directory -Force -Path .publish/windows-x64/vulkan
+                  cmake -B build -G "Visual Studio 17 2022" -A x64 `
+                      -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF `
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF `
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF `
+                      -DGGML_BUILD_TOOLS=OFF -DGGML_VULKAN=ON -DLLAMA_CURL=OFF
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu ggml-vulkan -j $env:NUMBER_OF_PROCESSORS
+                  Copy-Item build/bin/Release/llama.dll .publish/windows-x64/vulkan/ -ErrorAction SilentlyContinue
+                  Copy-Item build/bin/Release/ggml-base.dll .publish/windows-x64/vulkan/ -ErrorAction SilentlyContinue
+                  Copy-Item build/bin/Release/ggml-cpu.dll .publish/windows-x64/vulkan/ -ErrorAction SilentlyContinue
+                  Copy-Item build/bin/Release/ggml-vulkan.dll .publish/windows-x64/vulkan/ -ErrorAction SilentlyContinue
+                  Get-ChildItem .publish/windows-x64/vulkan/
+              shell: powershell
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-windows-x64-vulkan
+                  path: .publish/windows-x64/vulkan/*.dll
+                  retention-days: 90
+
+    windows-x64-opencl:
+        name: Windows x64 - OpenCL
+        runs-on: windows-2022
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install OpenCL Headers
+              run: |
+                  git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git
+                  cd OpenCL-Headers
+                  cmake -B build -DCMAKE_INSTALL_PREFIX="$env:RUNNER_TEMP/opencl"
+                  cmake --build build --config Release --target install
+                  cd ..
+                  git clone --depth 1 https://github.com/KhronosGroup/OpenCL-ICD-Loader.git
+                  cd OpenCL-ICD-Loader
+                  cmake -B build -DCMAKE_PREFIX_PATH="$env:RUNNER_TEMP/opencl" -DCMAKE_INSTALL_PREFIX="$env:RUNNER_TEMP/opencl"
+                  cmake --build build --config Release --target install
+                  Add-Content $env:GITHUB_ENV "OpenCL_ROOT=$env:RUNNER_TEMP/opencl"
+              shell: powershell
+
+            - name: Build (Runtime Only)
+              run: |
+                  New-Item -ItemType Directory -Force -Path .publish/windows-x64/opencl
+                  cmake -B build -G "Visual Studio 17 2022" -A x64 `
+                      -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF `
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF `
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF `
+                      -DGGML_BUILD_TOOLS=OFF -DGGML_OPENCL=ON -DLLAMA_CURL=OFF `
+                      -DOpenCL_ROOT="$env:OpenCL_ROOT"
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu ggml-opencl -j $env:NUMBER_OF_PROCESSORS
+                  Copy-Item build/bin/Release/llama.dll .publish/windows-x64/opencl/ -ErrorAction SilentlyContinue
+                  Copy-Item build/bin/Release/ggml-base.dll .publish/windows-x64/opencl/ -ErrorAction SilentlyContinue
+                  Copy-Item build/bin/Release/ggml-cpu.dll .publish/windows-x64/opencl/ -ErrorAction SilentlyContinue
+                  Copy-Item build/bin/Release/ggml-opencl.dll .publish/windows-x64/opencl/ -ErrorAction SilentlyContinue
+                  Get-ChildItem .publish/windows-x64/opencl/
+              shell: powershell
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-windows-x64-opencl
+                  path: .publish/windows-x64/opencl/*.dll
+                  retention-days: 90
+
+    # ============================================================================
+    # macOS Builds
+    # ============================================================================
+
+    macos-arm64-cpu:
+        name: macOS ARM64 - CPU
+        runs-on: macos-14
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build (Runtime Only)
+              run: |
+                  mkdir -p .publish/macos-arm64/cpu
+                  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+                      -DCMAKE_OSX_ARCHITECTURES=arm64 \
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
+                      -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu -j $(sysctl -n hw.logicalcpu)
+                  cp build/src/libllama.dylib .publish/macos-arm64/cpu/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-base.dylib .publish/macos-arm64/cpu/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-cpu.dylib .publish/macos-arm64/cpu/ 2>/dev/null || true
+                  ls -lh .publish/macos-arm64/cpu/
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-macos-arm64-cpu
+                  path: .publish/macos-arm64/cpu/*.dylib
+                  retention-days: 90
+
+    macos-arm64-metal:
+        name: macOS ARM64 - Metal
+        runs-on: macos-14
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build (Runtime Only)
+              run: |
+                  mkdir -p .publish/macos-arm64/metal
+                  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+                      -DCMAKE_OSX_ARCHITECTURES=arm64 \
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
+                      -DGGML_BUILD_TOOLS=OFF -DGGML_METAL=ON -DLLAMA_CURL=OFF
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu ggml-metal -j $(sysctl -n hw.logicalcpu)
+                  cp build/src/libllama.dylib .publish/macos-arm64/metal/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-base.dylib .publish/macos-arm64/metal/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-cpu.dylib .publish/macos-arm64/metal/ 2>/dev/null || true
+                  cp build/ggml/src/ggml-metal/libggml-metal.dylib .publish/macos-arm64/metal/ 2>/dev/null || true
+                  cp build/ggml/src/ggml-metal/ggml-metal.metal .publish/macos-arm64/metal/ 2>/dev/null || true
+                  ls -lh .publish/macos-arm64/metal/
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-macos-arm64-metal
+                  path: .publish/macos-arm64/metal/*
+                  retention-days: 90
+
+    macos-x64-cpu:
+        name: macOS x64 - CPU
+        runs-on: macos-13
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build (Runtime Only)
+              run: |
+                  mkdir -p .publish/macos-x64/cpu
+                  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
+                      -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
+                      -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu -j $(sysctl -n hw.logicalcpu)
+                  cp build/src/libllama.dylib .publish/macos-x64/cpu/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-base.dylib .publish/macos-x64/cpu/ 2>/dev/null || true
+                  cp build/ggml/src/libggml-cpu.dylib .publish/macos-x64/cpu/ 2>/dev/null || true
+                  ls -lh .publish/macos-x64/cpu/
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-macos-x64-cpu
+                  path: .publish/macos-x64/cpu/*.dylib
+                  retention-days: 90
