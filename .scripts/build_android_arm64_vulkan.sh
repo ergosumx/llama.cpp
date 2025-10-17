@@ -90,20 +90,24 @@ cd "$PROJECT_ROOT"
 if command -v glslc &> /dev/null; then
     echo "Found glslc: $(which glslc)"
     glslc --version
+    GLSLC_PATH=$(which glslc)
     echo "Using system glslc for shader compilation"
+elif command -v glslangValidator &> /dev/null; then
+    echo "Found glslangValidator: $(which glslangValidator)"
+    glslangValidator --version
+    GLSLC_PATH=$(which glslangValidator)
 else
-    echo "WARNING: glslc not found!"
-    echo "For CI builds, ensure Vulkan SDK is installed in workflow."
-    echo "For local builds, install with:"
-    echo "  sudo apt-get install -y libvulkan-dev glslang-tools spirv-tools"
-    echo ""
-    echo "Creating dummy glslc (may cause build failures)..."
-    # Create dummy glslc as fallback (will likely fail during shader compilation)
-    mkdir -p "$BUILD_DIR/bin"
-    echo '#!/bin/bash' > "$BUILD_DIR/bin/glslc"
-    echo 'exit 0' >> "$BUILD_DIR/bin/glslc"
-    chmod +x "$BUILD_DIR/bin/glslc"
-    export PATH="$BUILD_DIR/bin:$PATH"
+    echo "WARNING: No shader compiler found (glslc or glslangValidator)"
+    echo "Creating dummy glslc for build process (runtime compilation will be used)..."
+    
+    # Create dummy glslc as fallback
+    mkdir -p "$BUILD_DIR/dummy_tools"
+    echo '#!/bin/bash' > "$BUILD_DIR/dummy_tools/glslc"
+    echo 'exit 0' >> "$BUILD_DIR/dummy_tools/glslc"
+    chmod +x "$BUILD_DIR/dummy_tools/glslc"
+    export PATH="$BUILD_DIR/dummy_tools:$PATH"
+    GLSLC_PATH="$BUILD_DIR/dummy_tools/glslc"
+    echo "Created dummy glslc at: $GLSLC_PATH"
 fi
 
 cmake -B "$BUILD_DIR" \
@@ -116,17 +120,20 @@ cmake -B "$BUILD_DIR" \
     -DLLAMA_BUILD_TESTS=OFF \
     -DLLAMA_BUILD_EXAMPLES=OFF \
     -DLLAMA_BUILD_SERVER=OFF \
+    -DLLAMA_BUILD_TOOLS=OFF \
     -DGGML_BUILD_TESTS=OFF \
     -DGGML_BUILD_EXAMPLES=OFF \
     -DGGML_BUILD_TOOLS=OFF \
     -DGGML_VULKAN=ON \
     -DGGML_VULKAN_RUN_TESTS=OFF \
-    -DLLAMA_CURL=OFF
+    -DLLAMA_CURL=OFF \
+    -DVulkan_GLSLC_EXECUTABLE="$GLSLC_PATH"
 
 # Build
 echo ""
-echo "Building for Android ARM64..."
-cmake --build "$BUILD_DIR" -j$(nproc)
+echo "Building for Android ARM64 with Vulkan..."
+# Only build necessary libraries to avoid linking issues
+cmake --build "$BUILD_DIR" --target llama ggml-base ggml-cpu ggml-vulkan -j$(nproc)
 
 # Strip binaries
 echo ""

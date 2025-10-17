@@ -182,6 +182,52 @@ jobs:
                   path: .publish/android-arm64/cpu/*.so
                   retention-days: 90
 
+    build-vulkan-android-arm64:
+        name: Vulkan - Android ARM64
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install Vulkan SDK (for shader compiler)
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y \
+                      libvulkan-dev \
+                      glslang-tools \
+                      spirv-tools
+
+            - name: Verify Vulkan Installation
+              run: |
+                  echo "Vulkan packages installed:"
+                  dpkg -l | grep -E 'vulkan|glslang'
+                  echo "glslc/glslangValidator location:"
+                  which glslc || which glslangValidator || echo "Shader compiler will be created as dummy"
+
+            - name: Setup Android NDK
+              run: |
+                  # Download and setup Android NDK r26d
+                  NDK_VERSION="r26d"
+                  wget -q https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip
+                  unzip -q android-ndk-${NDK_VERSION}-linux.zip
+                  echo "ANDROID_NDK=$PWD/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
+
+            - name: Verify NDK Installation
+              run: |
+                  ls -la $ANDROID_NDK
+                  ls -la $ANDROID_NDK/build/cmake/
+
+            - name: Build
+              run: ./.scripts/build_android_arm64_vulkan.sh
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-vulkan-android-arm64
+                  path: .publish/android-arm64/vulkan/*.so
+                  retention-days: 90
+
     build-cpu-ios-arm64:
         name: CPU - iOS ARM64
         runs-on: macos-14
@@ -704,6 +750,7 @@ jobs:
         name: Package Universal Build - Android ARM64
         needs:
             - build-cpu-android-arm64
+            - build-vulkan-android-arm64
         runs-on: ubuntu-22.04
 
         steps:
@@ -718,6 +765,9 @@ jobs:
 
                   # Copy CPU backend
                   cp artifacts/ggufx-cpu-android-arm64/*.so universal/runtimes/android-arm64/native/
+                  
+                  # Copy Vulkan backend (optional)
+                  cp artifacts/ggufx-vulkan-android-arm64/*.so universal/runtimes/android-arm64/native/ || echo "Vulkan artifacts not found (optional)"
 
             - name: Show Package Contents
               run: |
@@ -733,7 +783,7 @@ jobs:
             - name: Create Android Integration README
               run: |
                   cat > universal/runtimes/android-arm64/README.md << 'EOF'
-                  # Android ARM64 Integration (CPU)
+                  # Android ARM64 Integration
 
                   ## Integration Steps
 
@@ -766,17 +816,29 @@ jobs:
                   - **Minimum Android version**: 7.0 (API 24)
                   - **Architecture**: arm64-v8a only
 
+                  ## Vulkan Support (Optional)
+
+                  If `libggml-vulkan.so` is present, GPU acceleration via Vulkan is available.
+                  Most modern Android devices (2018+) support Vulkan.
+
+                  To check Vulkan support:
+                  ```java
+                  PackageManager pm = context.getPackageManager();
+                  boolean hasVulkan = pm.hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL, 1);
+                  ```
+
                   ## Included Libraries
 
                   - `libllama.so` - Main llama.cpp library
                   - `libggml-cpu.so` - CPU backend
                   - `libggml-base.so` - Base GGML library
+                  - `libggml-vulkan.so` - Vulkan GPU backend (if present)
 
                   ## Notes
 
                   - All libraries are stripped for minimal size
                   - Built with Android NDK r26d
-                  - Pure CPU implementation (no GPU acceleration)
+                  - CPU backend always available, Vulkan provides GPU acceleration when supported
                   EOF
 
             - name: Upload Universal Package
