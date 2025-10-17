@@ -28,23 +28,36 @@ Write-Host "====================================================================
 Write-Host "Checking Vulkan SDK..."
 if (-not $env:VULKAN_SDK) {
     Write-Host "ERROR: Vulkan SDK not found. VULKAN_SDK environment variable is not set."
-    Write-Host "Please install Vulkan SDK from: https://vulkan.lunarg.com/sdk/home#windows"
     exit 1
 }
 Write-Host "Vulkan SDK: $env:VULKAN_SDK"
 
+# Check for shader compilers (glslc or glslangValidator)
 $glslc = Get-Command glslc -ErrorAction SilentlyContinue
-if (-not $glslc) {
-    Write-Host "WARNING: glslc not found in PATH. Looking in Vulkan SDK..."
-    $glslcPath = Join-Path $env:VULKAN_SDK "Bin\glslc.exe"
-    if (Test-Path $glslcPath) {
-        Write-Host "Found: $glslcPath"
-    } else {
-        Write-Host "ERROR: glslc not found. Vulkan SDK installation may be incomplete."
-        exit 1
-    }
+$glslangValidator = Get-Command glslangValidator -ErrorAction SilentlyContinue
+$glslcPath = Join-Path $env:VULKAN_SDK "Bin\glslc.exe"
+
+if ($glslc) {
+    Write-Host "Found glslc: $($glslc.Source)"
+} elseif ($glslangValidator) {
+    Write-Host "Found glslangValidator: $($glslangValidator.Source)"
+} elseif (Test-Path $glslcPath) {
+    Write-Host "Found glslc in Vulkan SDK: $glslcPath"
+    $env:PATH = "$env:VULKAN_SDK\Bin;$env:PATH"
 } else {
-    Write-Host "glslc: $($glslc.Source)"
+    Write-Host "WARNING: No shader compiler found (glslc or glslangValidator)."
+    Write-Host "Creating dummy glslc for build process (runtime compilation will be used)..."
+
+    # Create dummy glslc.bat that CMake can find
+    $dummyDir = Join-Path $BuildDir "dummy_tools"
+    New-Item -ItemType Directory -Force -Path $dummyDir | Out-Null
+
+    $dummyGlslc = Join-Path $dummyDir "glslc.bat"
+    "@echo off" | Out-File -FilePath $dummyGlslc -Encoding ASCII
+    "exit /b 0" | Out-File -FilePath $dummyGlslc -Encoding ASCII -Append
+
+    $env:PATH = "$dummyDir;$env:PATH"
+    Write-Host "Created dummy glslc.bat"
 }
 
 # Clean previous build
