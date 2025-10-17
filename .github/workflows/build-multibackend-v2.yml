@@ -625,24 +625,18 @@ jobs:
                   retention-days: 90
 
     # ============================================================================
-    # Create GitHub Release with All Artifacts
+    # Create GitHub Releases - Separate by Backend
     # ============================================================================
 
-    create-release:
-        name: Create Release
+    create-release-cpu:
+        name: Create Release - CPU & Metal
         runs-on: ubuntu-latest
         needs:
             - linux-x64-cpu
-            - linux-x64-vulkan
-            - linux-x64-cuda
             - linux-arm64-cpu
             - android-arm64-cpu
             - ios-arm64-metal
             - windows-x64-cpu
-            - windows-x64-vulkan
-            - windows-x64-cuda
-            - windows-x64-rocm
-            - linux-x64-rocm
             - macos-arm64-metal
 
         permissions:
@@ -659,10 +653,19 @@ jobs:
                   echo "version=${VERSION}" >> $GITHUB_OUTPUT
                   echo "Version: ${VERSION}"
 
-            - name: Download All Artifacts
+            - name: Download CPU Artifacts
               uses: actions/download-artifact@v4
               with:
                   path: ./artifacts
+                  pattern: ggufx-*-cpu
+                  merge-multiple: false
+
+            - name: Download Metal Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: ./artifacts
+                  pattern: ggufx-*-metal
+                  merge-multiple: false
 
             - name: List Downloaded Artifacts
               run: |
@@ -689,22 +692,20 @@ jobs:
                   sha256sum *.zip > checksums.txt
                   cat checksums.txt
 
-            - name: Create GitHub Release
+            - name: Create GitHub Release - CPU & Metal
               uses: softprops/action-gh-release@v1
               with:
-                  name: Release ${{ steps.version.outputs.version }}
+                  name: CPU & Metal - ${{ steps.version.outputs.version }}
+                  tag_name: ${{ steps.version.outputs.version }}-cpu
                   body: |
-                      # GGUFx Multi-Backend Runtime Libraries ${{ steps.version.outputs.version }}
+                      # GGUFx CPU & Metal Runtime Libraries ${{ steps.version.outputs.version }}
 
-                      Pre-built runtime-only libraries for .NET interop across multiple platforms and backends.
+                      Pre-built CPU and Apple Metal runtime libraries for maximum compatibility.
 
-                      ## 📦 Included Builds (16 platforms)
+                      ## 📦 Included Builds
 
                       ### Linux
                       - ✅ x64 CPU (SIMD optimized)
-                      - ✅ x64 Vulkan (GPU acceleration)
-                      - ✅ x64 CUDA 12.2 (NVIDIA GPU)
-                      - ✅ x64 ROCm/HIP (AMD GPU)
                       - ✅ ARM64 CPU (NEON optimized)
 
                       ### Android
@@ -715,37 +716,329 @@ jobs:
 
                       ### Windows
                       - ✅ x64 CPU (AVX/AVX2)
-                      - ✅ x64 Vulkan (GPU acceleration)
-                      - ✅ x64 CUDA 12.2 (NVIDIA GPU)
-                      - ✅ x64 ROCm/HIP (AMD GPU)
 
                       ### macOS
-                      - ✅ ARM64 CPU (Apple Silicon)
-                      - ✅ ARM64 Metal (GPU acceleration)
-                      - ✅ x64 CPU (Intel)
+                      - ✅ ARM64 Metal (GPU acceleration with shader file)
 
-                      ## 📚 Library Architecture
+                      ## 📚 Library Files
 
-                      Each archive contains 3-6 shared libraries depending on the backend:
-
-                      **CPU-only builds** (3-4 files):
+                      Each archive contains:
                       - `libggufx.{so|dll|dylib}` - High-level API
-                      - `libggml.{so|dll|dylib}` - Core GGML interface (macOS/iOS only)
+                      - `libggml.{so|dll|dylib}` - Core GGML interface
                       - `libggml-base.{so|dll|dylib}` - Tensor operations
                       - `libggml-cpu.{so|dll|dylib}` - CPU backend
-
-                      **GPU builds** (4-6 files):
-                      - Same as CPU + `libggml-{vulkan|cuda|opencl|metal|hip}.{so|dll|dylib}`
-                      - macOS Metal also includes `ggml-metal.metal` shader file
-                      - CUDA builds optimized for Ada Lovelace (89) and newer architectures
+                      - `libggml-metal.{dylib}` - Metal GPU backend (macOS/iOS)
+                      - `ggml-metal.metal` - Metal shader file (macOS only)
 
                       ## 🔐 Verification
 
                       SHA256 checksums are provided in `checksums.txt`
+                  files: |
+                      ./release/*.zip
+                      ./release/checksums.txt
+                  draft: false
+                  prerelease: false
+                  fail_on_unmatched_files: true
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-                      ## 📖 Documentation
+    create-release-vulkan:
+        name: Create Release - Vulkan
+        runs-on: ubuntu-latest
+        needs:
+            - linux-x64-vulkan
+            - windows-x64-vulkan
 
-                      See repository for integration guides and API documentation.
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Extract Version
+              id: version
+              run: |
+                  VERSION=${GITHUB_REF#refs/tags/}
+                  echo "version=${VERSION}" >> $GITHUB_OUTPUT
+                  echo "Version: ${VERSION}"
+
+            - name: Download Vulkan Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: ./artifacts
+                  pattern: ggufx-*-vulkan
+                  merge-multiple: false
+
+            - name: List Downloaded Artifacts
+              run: |
+                  echo "=== Downloaded Artifacts ==="
+                  ls -lhR ./artifacts
+
+            - name: Create Release Archives
+              run: |
+                  mkdir -p ./release
+                  cd ./artifacts
+
+                  # Create zip archives for each platform
+                  for dir in */; do
+                      platform="${dir%/}"
+                      echo "Creating archive for ${platform}..."
+                      cd "${platform}"
+                      zip -r "../../release/${platform}.zip" ./*
+                      cd ..
+                  done
+
+                  cd ../release
+                  echo "=== Release Archives ==="
+                  ls -lh
+                  sha256sum *.zip > checksums.txt
+                  cat checksums.txt
+
+            - name: Create GitHub Release - Vulkan
+              uses: softprops/action-gh-release@v1
+              with:
+                  name: Vulkan - ${{ steps.version.outputs.version }}
+                  tag_name: ${{ steps.version.outputs.version }}-vulkan
+                  body: |
+                      # GGUFx Vulkan Runtime Libraries ${{ steps.version.outputs.version }}
+
+                      Pre-built Vulkan GPU-accelerated runtime libraries for cross-platform graphics performance.
+
+                      ## 📦 Included Builds
+
+                      ### Linux
+                      - ✅ x64 Vulkan (GPU acceleration)
+
+                      ### Windows
+                      - ✅ x64 Vulkan (GPU acceleration)
+
+                      ## 📚 Library Files
+
+                      Each archive contains:
+                      - `libggufx.{so|dll}` - High-level API
+                      - `libggml.{so|dll}` - Core GGML interface
+                      - `libggml-base.{so|dll}` - Tensor operations
+                      - `libggml-cpu.{so|dll}` - CPU backend
+                      - `libggml-vulkan.{so|dll}` - Vulkan GPU backend
+
+                      ## 🎮 Vulkan Requirements
+
+                      - Vulkan 1.3+ compatible GPU
+                      - Latest graphics drivers installed
+                      - Works with NVIDIA, AMD, and Intel GPUs
+
+                      ## 🔐 Verification
+
+                      SHA256 checksums are provided in `checksums.txt`
+                  files: |
+                      ./release/*.zip
+                      ./release/checksums.txt
+                  draft: false
+                  prerelease: false
+                  fail_on_unmatched_files: true
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    create-release-cuda:
+        name: Create Release - CUDA
+        runs-on: ubuntu-latest
+        needs:
+            - linux-x64-cuda
+            - windows-x64-cuda
+
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Extract Version
+              id: version
+              run: |
+                  VERSION=${GITHUB_REF#refs/tags/}
+                  echo "version=${VERSION}" >> $GITHUB_OUTPUT
+                  echo "Version: ${VERSION}"
+
+            - name: Download CUDA Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: ./artifacts
+                  pattern: ggufx-*-cuda
+                  merge-multiple: false
+
+            - name: List Downloaded Artifacts
+              run: |
+                  echo "=== Downloaded Artifacts ==="
+                  ls -lhR ./artifacts
+
+            - name: Create Release Archives
+              run: |
+                  mkdir -p ./release
+                  cd ./artifacts
+
+                  # Create zip archives for each platform
+                  for dir in */; do
+                      platform="${dir%/}"
+                      echo "Creating archive for ${platform}..."
+                      cd "${platform}"
+                      zip -r "../../release/${platform}.zip" ./*
+                      cd ..
+                  done
+
+                  cd ../release
+                  echo "=== Release Archives ==="
+                  ls -lh
+                  sha256sum *.zip > checksums.txt
+                  cat checksums.txt
+
+            - name: Create GitHub Release - CUDA
+              uses: softprops/action-gh-release@v1
+              with:
+                  name: CUDA 12.2 - ${{ steps.version.outputs.version }}
+                  tag_name: ${{ steps.version.outputs.version }}-cuda
+                  body: |
+                      # GGUFx CUDA Runtime Libraries ${{ steps.version.outputs.version }}
+
+                      Pre-built CUDA 12.2 GPU-accelerated runtime libraries for NVIDIA GPUs.
+
+                      ## 📦 Included Builds
+
+                      ### Linux
+                      - ✅ x64 CUDA 12.2 (NVIDIA GPU)
+
+                      ### Windows
+                      - ✅ x64 CUDA 12.2 (NVIDIA GPU)
+
+                      ## 📚 Library Files
+
+                      Each archive contains:
+                      - `libggufx.{so|dll}` - High-level API
+                      - `libggml.{so|dll}` - Core GGML interface
+                      - `libggml-base.{so|dll}` - Tensor operations
+                      - `libggml-cpu.{so|dll}` - CPU backend
+                      - `libggml-cuda.{so|dll}` - CUDA GPU backend
+
+                      ## 🚀 CUDA Requirements
+
+                      - NVIDIA GPU with compute capability 8.9+ (Ada Lovelace or newer)
+                      - CUDA 12.2+ runtime installed
+                      - Supported GPUs: RTX 4060 Ti, RTX 4070, RTX 4080, RTX 4090, etc.
+
+                      ## ⚠️ Note
+
+                      These builds are optimized for Ada Lovelace architecture (89-real).
+                      For broader GPU support, build from source with custom architectures.
+
+                      ## 🔐 Verification
+
+                      SHA256 checksums are provided in `checksums.txt`
+                  files: |
+                      ./release/*.zip
+                      ./release/checksums.txt
+                  draft: false
+                  prerelease: false
+                  fail_on_unmatched_files: true
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    create-release-rocm:
+        name: Create Release - ROCm
+        runs-on: ubuntu-latest
+        needs:
+            - linux-x64-rocm
+            - windows-x64-rocm
+
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Extract Version
+              id: version
+              run: |
+                  VERSION=${GITHUB_REF#refs/tags/}
+                  echo "version=${VERSION}" >> $GITHUB_OUTPUT
+                  echo "Version: ${VERSION}"
+
+            - name: Download ROCm Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: ./artifacts
+                  pattern: ggufx-*-rocm
+                  merge-multiple: false
+
+            - name: List Downloaded Artifacts
+              run: |
+                  echo "=== Downloaded Artifacts ==="
+                  ls -lhR ./artifacts
+
+            - name: Create Release Archives
+              run: |
+                  mkdir -p ./release
+                  cd ./artifacts
+
+                  # Create zip archives for each platform
+                  for dir in */; do
+                      platform="${dir%/}"
+                      echo "Creating archive for ${platform}..."
+                      cd "${platform}"
+                      zip -r "../../release/${platform}.zip" ./*
+                      cd ..
+                  done
+
+                  cd ../release
+                  echo "=== Release Archives ==="
+                  ls -lh
+                  sha256sum *.zip > checksums.txt
+                  cat checksums.txt
+
+            - name: Create GitHub Release - ROCm
+              uses: softprops/action-gh-release@v1
+              with:
+                  name: ROCm/HIP - ${{ steps.version.outputs.version }}
+                  tag_name: ${{ steps.version.outputs.version }}-rocm
+                  body: |
+                      # GGUFx ROCm/HIP Runtime Libraries ${{ steps.version.outputs.version }}
+
+                      Pre-built ROCm/HIP GPU-accelerated runtime libraries for AMD GPUs.
+
+                      ## 📦 Included Builds
+
+                      ### Linux
+                      - ✅ x64 ROCm 6.1 (AMD GPU)
+
+                      ### Windows
+                      - ✅ x64 ROCm 6.4 (AMD GPU)
+
+                      ## 📚 Library Files
+
+                      Each archive contains:
+                      - `libggufx.{so|dll}` - High-level API
+                      - `libggml.{so|dll}` - Core GGML interface
+                      - `libggml-base.{so|dll}` - Tensor operations
+                      - `libggml-cpu.{so|dll}` - CPU backend
+                      - `libggml-hip.{so|dll}` - ROCm/HIP GPU backend
+
+                      ## 🔴 ROCm Requirements
+
+                      - AMD GPU (Radeon RX 6000/7000 series or newer)
+                      - ROCm 6.1+ runtime (Linux) or HIP SDK 25.Q3+ (Windows)
+                      - Supported architectures: gfx906, gfx908, gfx90a, gfx940-942, gfx1030, gfx1100-1102
+
+                      ## 📌 Supported GPUs
+
+                      - MI200 series (Instinct)
+                      - MI300 series (Instinct)
+                      - RX 6000 series (RDNA 2)
+                      - RX 7000 series (RDNA 3)
+
+                      ## 🔐 Verification
+
+                      SHA256 checksums are provided in `checksums.txt`
                   files: |
                       ./release/*.zip
                       ./release/checksums.txt
