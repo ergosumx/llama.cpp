@@ -280,79 +280,6 @@ jobs:
                   path: .publish/android-arm64/cpu/*.so
                   retention-days: 90
 
-    android-arm64-vulkan:
-        name: Android ARM64 - Vulkan
-        runs-on: ubuntu-22.04
-
-        env:
-            VULKAN_VERSION: 1.4.328.1
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Setup Android NDK
-              uses: nttld/setup-ndk@v1
-              with:
-                  ndk-version: r26d
-                  add-to-path: true
-                  local-cache: true
-
-            - name: Use Vulkan SDK Cache
-              uses: actions/cache@v4
-              id: cache-sdk
-              with:
-                  path: ./vulkan_sdk
-                  key: vulkan-sdk-${{ env.VULKAN_VERSION }}-android-${{ runner.os }}
-
-            - name: Setup Vulkan SDK
-              if: steps.cache-sdk.outputs.cache-hit != 'true'
-              uses: ./.github/actions/linux-setup-vulkan
-              with:
-                  path: ./vulkan_sdk
-                  version: ${{ env.VULKAN_VERSION }}
-
-            - name: Build (Runtime Only - Cross Compile)
-              run: |
-                  source ./vulkan_sdk/setup-env.sh
-                  mkdir -p .publish/android-arm64/vulkan
-                  cmake -B build \
-                      -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
-                      -DANDROID_ABI=arm64-v8a \
-                      -DANDROID_PLATFORM=android-28 \
-                      -DCMAKE_BUILD_TYPE=Release \
-                      -DBUILD_SHARED_LIBS=ON \
-                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
-                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
-                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
-                      -DGGML_BUILD_TOOLS=OFF \
-                      -DGGML_VULKAN=ON \
-                      -DGGML_OPENMP=OFF \
-                      -DGGML_LLAMAFILE=OFF \
-                      -DLLAMA_CURL=OFF \
-                      -DCMAKE_C_FLAGS="-march=armv8.2-a+dotprod" \
-                      -DCMAKE_CXX_FLAGS="-march=armv8.2-a+dotprod"
-                  cmake --build build --config Release -j $(nproc)
-                  ls -lh build/bin/ || true
-                  find build -name "*.so" -type f || true
-                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libllama.so
-                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml-base.so
-                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml-cpu.so
-                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml-vulkan.so
-                  cp build/bin/libllama.so .publish/android-arm64/vulkan/
-                  cp build/bin/libggml-base.so .publish/android-arm64/vulkan/
-                  cp build/bin/libggml-cpu.so .publish/android-arm64/vulkan/
-                  cp build/bin/libggml-vulkan.so .publish/android-arm64/vulkan/
-                  ls -lh .publish/android-arm64/vulkan/
-                  echo "Target: Android ARM64 (arm64-v8a) with Vulkan, API 28+"
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-android-arm64-vulkan
-                  path: .publish/android-arm64/vulkan/*.so
-                  retention-days: 90
-
     # ============================================================================
     # iOS ARM64 Builds
     # ============================================================================
@@ -383,6 +310,7 @@ jobs:
                   cmake --build build --config Release -j $(sysctl -n hw.logicalcpu) -- CODE_SIGNING_ALLOWED=NO
                   ls -lh build/bin/Release/
                   cp build/bin/Release/libllama.dylib .publish/ios-arm64/cpu/
+                  cp build/bin/Release/libggml.dylib .publish/ios-arm64/cpu/
                   cp build/bin/Release/libggml-base.dylib .publish/ios-arm64/cpu/
                   cp build/bin/Release/libggml-cpu.dylib .publish/ios-arm64/cpu/
                   ls -lh .publish/ios-arm64/cpu/
@@ -424,10 +352,11 @@ jobs:
                   cmake --build build --config Release -j $(sysctl -n hw.logicalcpu) -- CODE_SIGNING_ALLOWED=NO
                   ls -lh build/bin/Release/
                   cp build/bin/Release/libllama.dylib .publish/ios-arm64/metal/
+                  cp build/bin/Release/libggml.dylib .publish/ios-arm64/metal/
                   cp build/bin/Release/libggml-base.dylib .publish/ios-arm64/metal/
                   cp build/bin/Release/libggml-cpu.dylib .publish/ios-arm64/metal/
                   cp build/bin/Release/libggml-metal.dylib .publish/ios-arm64/metal/
-                  cp build/bin/Release/ggml-metal.metal .publish/ios-arm64/metal/
+                  echo "Note: ggml-metal.metal shader is embedded in libggml-metal.dylib (GGML_METAL_EMBED_LIBRARY=ON)"
                   ls -lh .publish/ios-arm64/metal/
                   echo "Target: iOS ARM64 (arm64) with Metal, iOS 14.0+"
 
@@ -721,7 +650,9 @@ jobs:
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
                       -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j $(sysctl -n hw.logicalcpu)
+                  ls -lh build/bin/
                   cp build/bin/libllama.dylib .publish/macos-arm64/cpu/
+                  cp build/bin/libggml.dylib .publish/macos-arm64/cpu/
                   cp build/bin/libggml-base.dylib .publish/macos-arm64/cpu/
                   cp build/bin/libggml-cpu.dylib .publish/macos-arm64/cpu/
                   ls -lh .publish/macos-arm64/cpu/
@@ -751,7 +682,9 @@ jobs:
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
                       -DGGML_BUILD_TOOLS=OFF -DGGML_METAL=ON -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j $(sysctl -n hw.logicalcpu)
+                  ls -lh build/bin/
                   cp build/bin/libllama.dylib .publish/macos-arm64/metal/
+                  cp build/bin/libggml.dylib .publish/macos-arm64/metal/
                   cp build/bin/libggml-base.dylib .publish/macos-arm64/metal/
                   cp build/bin/libggml-cpu.dylib .publish/macos-arm64/metal/
                   cp build/bin/libggml-metal.dylib .publish/macos-arm64/metal/
@@ -783,7 +716,9 @@ jobs:
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
                       -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j $(sysctl -n hw.logicalcpu)
+                  ls -lh build/bin/
                   cp build/bin/libllama.dylib .publish/macos-x64/cpu/
+                  cp build/bin/libggml.dylib .publish/macos-x64/cpu/
                   cp build/bin/libggml-base.dylib .publish/macos-x64/cpu/
                   cp build/bin/libggml-cpu.dylib .publish/macos-x64/cpu/
                   ls -lh .publish/macos-x64/cpu/
