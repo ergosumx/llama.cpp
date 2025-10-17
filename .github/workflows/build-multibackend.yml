@@ -342,10 +342,20 @@ jobs:
             - name: Install glslang (shader compiler)
               run: |
                   # Download glslang binaries from GitHub releases
-                  $version = "14.3.0"
-                  $url = "https://github.com/KhronosGroup/glslang/releases/download/$version/glslang-master-windows-x64-Release.zip"
-                  Write-Host "Downloading glslang $version..."
-                  Invoke-WebRequest -Uri $url -OutFile glslang.zip
+                  $version = "15.0.0"
+                  $url = "https://github.com/KhronosGroup/glslang/releases/download/$version/glslang-$version-windows-x64-Release.zip"
+                  Write-Host "Downloading glslang $version from: $url"
+
+                  try {
+                      Invoke-WebRequest -Uri $url -OutFile glslang.zip -ErrorAction Stop
+                  } catch {
+                      Write-Host "Failed to download from primary URL, trying alternative..."
+                      # Try SDK version
+                      $version = "sdk-1.3.290.0"
+                      $url = "https://github.com/KhronosGroup/glslang/releases/download/$version/glslang-master-windows-x64-Release.zip"
+                      Write-Host "Trying: $url"
+                      Invoke-WebRequest -Uri $url -OutFile glslang.zip -ErrorAction Stop
+                  }
 
                   Write-Host "Extracting glslang..."
                   Expand-Archive -Path glslang.zip -DestinationPath glslang -Force
@@ -358,9 +368,7 @@ jobs:
                   $env:PATH = "$glslangBin;$env:PATH"
 
                   Write-Host "glslang installed to: $glslangBin"
-                  if (Test-Path "$glslangBin\glslangValidator.exe") {
-                      Write-Host "glslangValidator found"
-                  }
+                  Get-ChildItem $glslangBin
               shell: powershell
 
             - name: Verify Vulkan Installation
