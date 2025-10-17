@@ -105,6 +105,73 @@ jobs:
                   path: .publish/macos-arm64/cpu/*.dylib
                   retention-days: 90
 
+    build-cpu-macos-x64:
+        name: CPU - macOS x64 (Intel)
+        runs-on: macos-13
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build
+              run: ./.scripts/build_macos_x64.sh
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-cpu-osx-x64
+                  path: .publish/macos-x64/cpu/*.dylib
+                  retention-days: 90
+
+    build-cpu-android-arm64:
+        name: CPU - Android ARM64
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Android NDK
+              run: |
+                  # Download and setup Android NDK r26d
+                  NDK_VERSION="r26d"
+                  wget -q https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip
+                  unzip -q android-ndk-${NDK_VERSION}-linux.zip
+                  echo "ANDROID_NDK=$PWD/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
+
+            - name: Verify NDK Installation
+              run: |
+                  ls -la $ANDROID_NDK
+                  ls -la $ANDROID_NDK/build/cmake/
+
+            - name: Build
+              run: ./.scripts/build_android_arm64.sh
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-cpu-android-arm64
+                  path: .publish/android-arm64/cpu/*.so
+                  retention-days: 90
+
+    build-cpu-ios-arm64:
+        name: CPU - iOS ARM64
+        runs-on: macos-14
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Build
+              run: ./.scripts/build_ios_arm64.sh
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-cpu-ios-arm64
+                  path: .publish/ios-arm64/cpu/*.dylib
+                  retention-days: 90
+
     # ============================================================================
     # Metal Build (macOS ARM64)
     # ============================================================================
@@ -430,5 +497,213 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: ggufx-universal-osx-arm64
+                  path: universal/
+                  retention-days: 90
+
+    package-universal-macos-x64:
+        name: Package Universal Build - macOS x64
+        needs:
+            - build-cpu-macos-x64
+        runs-on: macos-13
+
+        steps:
+            - name: Download All Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Create Package Structure
+              run: |
+                  mkdir -p universal/runtimes/osx-x64/native
+
+                  # Copy CPU backend (base)
+                  cp artifacts/ggufx-cpu-osx-x64/*.dylib universal/runtimes/osx-x64/native/
+
+            - name: Show Package Contents
+              run: |
+                  ls -lh universal/runtimes/osx-x64/native/
+                  du -sh universal/runtimes/osx-x64/native/
+
+            - name: Create Checksums
+              run: |
+                  cd universal/runtimes/osx-x64/native
+                  shasum -a 256 * > checksums.txt
+                  cat checksums.txt
+
+            - name: Upload Universal Package
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-universal-osx-x64
+                  path: universal/
+                  retention-days: 90
+
+    package-universal-android-arm64:
+        name: Package Universal Build - Android ARM64
+        needs:
+            - build-cpu-android-arm64
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Download All Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Create Package Structure
+              run: |
+                  mkdir -p universal/runtimes/android-arm64/native
+
+                  # Copy CPU backend
+                  cp artifacts/ggufx-cpu-android-arm64/*.so universal/runtimes/android-arm64/native/
+
+            - name: Show Package Contents
+              run: |
+                  ls -lh universal/runtimes/android-arm64/native/
+                  du -sh universal/runtimes/android-arm64/native/
+
+            - name: Create Checksums
+              run: |
+                  cd universal/runtimes/android-arm64/native
+                  sha256sum *.so > checksums.txt
+                  cat checksums.txt
+
+            - name: Create Android Integration README
+              run: |
+                  cat > universal/runtimes/android-arm64/README.md << 'EOF'
+                  # Android ARM64 Integration (CPU)
+
+                  ## Integration Steps
+
+                  1. Copy all `.so` files to your Android project:
+                     ```
+                     app/src/main/jniLibs/arm64-v8a/
+                     ```
+
+                  2. Add to your `build.gradle`:
+                     ```gradle
+                     android {
+                         defaultConfig {
+                             minSdkVersion 24  // Android 7.0+
+                             ndk {
+                                 abiFilters 'arm64-v8a'
+                             }
+                         }
+                     }
+                     ```
+
+                  3. Load native library in your Java/Kotlin code:
+                     ```java
+                     static {
+                         System.loadLibrary("llama");
+                     }
+                     ```
+
+                  ## Requirements
+
+                  - **Minimum Android version**: 7.0 (API 24)
+                  - **Architecture**: arm64-v8a only
+
+                  ## Included Libraries
+
+                  - `libllama.so` - Main llama.cpp library
+                  - `libggml-cpu.so` - CPU backend
+                  - `libggml-base.so` - Base GGML library
+
+                  ## Notes
+
+                  - All libraries are stripped for minimal size
+                  - Built with Android NDK r26d
+                  - Pure CPU implementation (no GPU acceleration)
+                  EOF
+
+            - name: Upload Universal Package
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-universal-android-arm64
+                  path: universal/
+                  retention-days: 90
+
+    package-universal-ios-arm64:
+        name: Package Universal Build - iOS ARM64
+        needs:
+            - build-cpu-ios-arm64
+        runs-on: macos-14
+
+        steps:
+            - name: Download All Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Create Package Structure
+              run: |
+                  mkdir -p universal/runtimes/ios-arm64/native
+
+                  # Copy CPU backend
+                  cp artifacts/ggufx-cpu-ios-arm64/*.dylib universal/runtimes/ios-arm64/native/
+
+            - name: Show Package Contents
+              run: |
+                  ls -lh universal/runtimes/ios-arm64/native/
+                  du -sh universal/runtimes/ios-arm64/native/
+
+            - name: Create Checksums
+              run: |
+                  cd universal/runtimes/ios-arm64/native
+                  shasum -a 256 * > checksums.txt
+                  cat checksums.txt
+
+            - name: Create iOS Integration README
+              run: |
+                  cat > universal/runtimes/ios-arm64/README.md << 'EOF'
+                  # iOS ARM64 Integration (CPU)
+
+                  ## Integration Steps
+
+                  1. Add all `.dylib` files to your Xcode project
+
+                  2. In Xcode project settings:
+                     - Select your target
+                     - Go to "Frameworks, Libraries, and Embedded Content"
+                     - Click "+" and add the .dylib files
+                     - Set embedding option (usually "Do Not Embed" for simulators)
+
+                  3. Import in your Swift code:
+                     ```swift
+                     // If you have a module map
+                     import llama
+
+                     // Or use C bridging header
+                     ```
+
+                  4. In Objective-C:
+                     ```objc
+                     #include "llama.h"
+                     ```
+
+                  ## Requirements
+
+                  - **Minimum iOS version**: 13.0
+                  - **Architecture**: arm64 (iPhone/iPad devices)
+                  - **Xcode**: 12.0 or later
+
+                  ## Included Libraries
+
+                  - `libllama.dylib` - Main llama.cpp library
+                  - `libggml-cpu.dylib` - CPU backend
+                  - `libggml-base.dylib` - Base GGML library
+
+                  ## Notes
+
+                  - Built for iOS devices only (not simulator)
+                  - Pure CPU implementation
+                  - Optimized for ARM64 architecture
+                  - For simulator builds, rebuild with appropriate SDK
+                  EOF
+
+            - name: Upload Universal Package
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-universal-ios-arm64
                   path: universal/
                   retention-days: 90
