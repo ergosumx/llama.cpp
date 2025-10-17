@@ -4,9 +4,9 @@ llama_add_compile_flags()
 # libraries
 #
 
-# llama
+# ggufx (formerly llama)
 
-add_library(llama
+add_library(ggufx
             ../include/llama.h
             llama.cpp
             llama-adapter.cpp
@@ -37,14 +37,14 @@ add_library(llama
             unicode.h
             )
 
-target_include_directories(llama PRIVATE .)
-target_include_directories(llama PUBLIC ../include)
-target_compile_features   (llama PRIVATE cxx_std_17) # don't bump
+target_include_directories(ggufx PRIVATE .)
+target_include_directories(ggufx PUBLIC ../include)
+target_compile_features   (ggufx PRIVATE cxx_std_17) # don't bump
 
-target_link_libraries(llama PUBLIC ggml)
+target_link_libraries(ggufx PUBLIC ggml)
 
 if (BUILD_SHARED_LIBS)
-    set_target_properties(llama PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_compile_definitions(llama PRIVATE LLAMA_BUILD)
-    target_compile_definitions(llama PUBLIC  LLAMA_SHARED)
+    set_target_properties(ggufx PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    target_compile_definitions(ggufx PRIVATE LLAMA_BUILD)
+    target_compile_definitions(ggufx PUBLIC  LLAMA_SHARED)
 endif()

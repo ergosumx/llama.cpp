@@ -37,7 +37,7 @@ jobs:
                   cmake --build build --config Release -j $(nproc)
                   ls -lh build/bin/ || ls -lh build/src/ || ls -lh build/ggml/src/
                   find build -name "*.so" -type f
-                  cp build/bin/libllama.so .publish/linux-x64/cpu/
+                  cp build/bin/libggufx.so .publish/linux-x64/cpu/
                   cp build/bin/libggml.so .publish/linux-x64/cpu/
                   cp build/bin/libggml-base.so .publish/linux-x64/cpu/
                   cp build/bin/libggml-cpu.so .publish/linux-x64/cpu/
@@ -87,7 +87,7 @@ jobs:
                       -DGGML_BUILD_TOOLS=OFF -DGGML_VULKAN=ON -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j $(nproc)
                   ls -lh build/bin/
-                  cp build/bin/libllama.so .publish/linux-x64/vulkan/
+                  cp build/bin/libggufx.so .publish/linux-x64/vulkan/
                   cp build/bin/libggml.so .publish/linux-x64/vulkan/
                   cp build/bin/libggml-base.so .publish/linux-x64/vulkan/
                   cp build/bin/libggml-cpu.so .publish/linux-x64/vulkan/
@@ -123,7 +123,7 @@ jobs:
                       -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j $(nproc)
                   ls -lh build/bin/
-                  cp build/bin/libllama.so .publish/linux-arm64/cpu/
+                  cp build/bin/libggufx.so .publish/linux-arm64/cpu/
                   cp build/bin/libggml.so .publish/linux-arm64/cpu/
                   cp build/bin/libggml-base.so .publish/linux-arm64/cpu/
                   cp build/bin/libggml-cpu.so .publish/linux-arm64/cpu/
@@ -176,11 +176,11 @@ jobs:
                   cmake --build build --config Release -j $(nproc)
                   ls -lh build/bin/ || true
                   find build -name "*.so" -type f || true
-                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libllama.so
+                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggufx.so
                   $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml.so
                   $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml-base.so
                   $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml-cpu.so
-                  cp build/bin/libllama.so .publish/android-arm64/cpu/
+                  cp build/bin/libggufx.so .publish/android-arm64/cpu/
                   cp build/bin/libggml.so .publish/android-arm64/cpu/
                   cp build/bin/libggml-base.so .publish/android-arm64/cpu/
                   cp build/bin/libggml-cpu.so .publish/android-arm64/cpu/
@@ -226,7 +226,7 @@ jobs:
                       -DCMAKE_XCODE_ATTRIBUTE_DEVELOPMENT_TEAM=ggml
                   cmake --build build --config Release -j $(sysctl -n hw.logicalcpu) -- CODE_SIGNING_ALLOWED=NO
                   ls -lh build/bin/Release/
-                  cp build/bin/Release/libllama.dylib .publish/ios-arm64/metal/
+                  cp build/bin/Release/libggufx.dylib .publish/ios-arm64/metal/
                   cp build/bin/Release/libggml.dylib .publish/ios-arm64/metal/
                   cp build/bin/Release/libggml-base.dylib .publish/ios-arm64/metal/
                   cp build/bin/Release/libggml-cpu.dylib .publish/ios-arm64/metal/
@@ -265,7 +265,7 @@ jobs:
                       -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
                   Get-ChildItem build/bin/Release/
-                  Copy-Item build/bin/Release/llama.dll .publish/windows-x64/cpu/
+                  Copy-Item build/bin/Release/ggufx.dll .publish/windows-x64/cpu/
                   Copy-Item build/bin/Release/ggml.dll .publish/windows-x64/cpu/
                   Copy-Item build/bin/Release/ggml-base.dll .publish/windows-x64/cpu/
                   Copy-Item build/bin/Release/ggml-cpu.dll .publish/windows-x64/cpu/
@@ -321,7 +321,7 @@ jobs:
                       -DGGML_BUILD_TOOLS=OFF -DGGML_VULKAN=ON -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
                   Get-ChildItem build/bin/Release/
-                  Copy-Item build/bin/Release/llama.dll .publish/windows-x64/vulkan/
+                  Copy-Item build/bin/Release/ggufx.dll .publish/windows-x64/vulkan/
                   Copy-Item build/bin/Release/ggml.dll .publish/windows-x64/vulkan/
                   Copy-Item build/bin/Release/ggml-base.dll .publish/windows-x64/vulkan/
                   Copy-Item build/bin/Release/ggml-cpu.dll .publish/windows-x64/vulkan/
@@ -341,7 +341,6 @@ jobs:
     # ============================================================================
 
     windows-x64-rocm:
-        if: false
         name: Windows x64 - ROCm/HIP
         runs-on: windows-2022
 
@@ -404,7 +403,7 @@ jobs:
                     -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF `
                     -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j ${env:NUMBER_OF_PROCESSORS}
-                  Copy-Item build/bin/libllama.so .publish/windows-x64/rocm/
+                  Copy-Item build/bin/libggufx.so .publish/windows-x64/rocm/
                   Copy-Item build/bin/libggml-base.so .publish/windows-x64/rocm/
                   Copy-Item build/bin/libggml-cpu.so .publish/windows-x64/rocm/
                   Copy-Item build/bin/libggml-hip.so .publish/windows-x64/rocm/
@@ -418,8 +417,107 @@ jobs:
                   path: .publish/windows-x64/rocm/*.so
                   retention-days: 90
 
+    # ============================================================================
+    # CUDA Builds
+    # ============================================================================
+
+    linux-x64-cuda:
+        name: Linux x64 - CUDA 12.2
+        runs-on: ubuntu-22.04
+        container: nvidia/cuda:12.2.2-devel-ubuntu22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install dependencies
+              env:
+                  DEBIAN_FRONTEND: noninteractive
+              run: |
+                  apt update
+                  apt install -y cmake build-essential ninja-build libgomp1 git
+
+            - name: Build (Runtime Only)
+              run: |
+                  mkdir -p .publish/linux-x64/cuda
+                  cmake -S . -B build -G Ninja \
+                      -DCMAKE_BUILD_TYPE=Release \
+                      -DBUILD_SHARED_LIBS=ON \
+                      -DCMAKE_CUDA_ARCHITECTURES="60;61;70;75;80;86;89;90" \
+                      -DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined \
+                      -DGGML_NATIVE=OFF \
+                      -DGGML_CUDA=ON \
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
+                      -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
+                  cmake --build build --config Release
+                  cp build/bin/libggufx.so .publish/linux-x64/cuda/
+                  cp build/bin/libggml-base.so .publish/linux-x64/cuda/
+                  cp build/bin/libggml-cpu.so .publish/linux-x64/cuda/
+                  cp build/bin/libggml-cuda.so .publish/linux-x64/cuda/
+                  ls -lh .publish/linux-x64/cuda/
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-linux-x64-cuda
+                  path: .publish/linux-x64/cuda/*.so
+                  retention-days: 90
+
+    windows-x64-cuda:
+        name: Windows x64 - CUDA 12.2
+        runs-on: windows-2022
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install CUDA Toolkit 12.2
+              uses: Jimver/cuda-toolkit@v0.2.16
+              with:
+                  cuda: "12.2.2"
+                  method: "network"
+                  sub-packages: '["nvcc", "cudart", "cublas", "cublas_dev", "thrust", "visual_studio_integration"]'
+
+            - name: Install Ninja
+              run: |
+                  choco install ninja
+
+            - name: Build (Runtime Only)
+              shell: cmd
+              run: |
+                  call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+                  mkdir .publish\windows-x64\cuda
+                  cmake -S . -B build -G "Ninja Multi-Config" ^
+                    -DCMAKE_BUILD_TYPE=Release ^
+                    -DBUILD_SHARED_LIBS=ON ^
+                    -DGGML_NATIVE=OFF ^
+                    -DGGML_CUDA=ON ^
+                    -DCMAKE_CUDA_ARCHITECTURES="60;61;70;75;80;86;89;90" ^
+                    -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF ^
+                    -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF ^
+                    -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF ^
+                    -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
+                  cmake --build build --config Release
+                  copy build\bin\Release\ggufx.dll .publish\windows-x64\cuda\
+                  copy build\bin\Release\ggml-base.dll .publish\windows-x64\cuda\
+                  copy build\bin\Release\ggml-cpu.dll .publish\windows-x64\cuda\
+                  copy build\bin\Release\ggml-cuda.dll .publish\windows-x64\cuda\
+                  dir .publish\windows-x64\cuda\
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-windows-x64-cuda
+                  path: .publish/windows-x64/cuda/*.dll
+                  retention-days: 90
+
+    # ============================================================================
+    # Linux ROCm/HIP Build
+    # ============================================================================
+
     linux-x64-rocm:
-        if: false
         name: Linux x64 - ROCm/HIP
         runs-on: ubuntu-22.04
         container: rocm/dev-ubuntu-22.04:6.1.2
@@ -450,7 +548,7 @@ jobs:
                       -DGGML_HIP_ROCWMMA_FATTN=ON \
                       -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j $(nproc)
-                  cp build/bin/libllama.so .publish/linux-x64/rocm/
+                  cp build/bin/libggufx.so .publish/linux-x64/rocm/
                   cp build/bin/libggml-base.so .publish/linux-x64/rocm/
                   cp build/bin/libggml-cpu.so .publish/linux-x64/rocm/
                   cp build/bin/libggml-hip.so .publish/linux-x64/rocm/
@@ -486,7 +584,7 @@ jobs:
                       -DGGML_BUILD_TOOLS=OFF -DGGML_METAL=ON -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j $(sysctl -n hw.logicalcpu)
                   ls -lh build/bin/
-                  cp build/bin/libllama.dylib .publish/macos-arm64/metal/
+                  cp build/bin/libggufx.dylib .publish/macos-arm64/metal/
                   cp build/bin/libggml.dylib .publish/macos-arm64/metal/
                   cp build/bin/libggml-base.dylib .publish/macos-arm64/metal/
                   cp build/bin/libggml-cpu.dylib .publish/macos-arm64/metal/
@@ -511,13 +609,15 @@ jobs:
         needs:
             - linux-x64-cpu
             - linux-x64-vulkan
+            - linux-x64-cuda
             - linux-arm64-cpu
             - android-arm64-cpu
             - ios-arm64-metal
             - windows-x64-cpu
             - windows-x64-vulkan
-            # - windows-x64-rocm
-            # - linux-x64-rocm
+            - windows-x64-cuda
+            - windows-x64-rocm
+            - linux-x64-rocm
             - macos-arm64-metal
 
         permissions:
@@ -578,6 +678,7 @@ jobs:
                       ### Linux
                       - ✅ x64 CPU (SIMD optimized)
                       - ✅ x64 Vulkan (GPU acceleration)
+                      - ✅ x64 CUDA 12.2 (NVIDIA GPU)
                       - ✅ x64 ROCm/HIP (AMD GPU)
                       - ✅ ARM64 CPU (NEON optimized)
 
@@ -590,6 +691,7 @@ jobs:
                       ### Windows
                       - ✅ x64 CPU (AVX/AVX2)
                       - ✅ x64 Vulkan (GPU acceleration)
+                      - ✅ x64 CUDA 12.2 (NVIDIA GPU)
                       - ✅ x64 ROCm/HIP (AMD GPU)
 
                       ### macOS
@@ -602,14 +704,15 @@ jobs:
                       Each archive contains 3-6 shared libraries depending on the backend:
 
                       **CPU-only builds** (3-4 files):
-                      - `libllama.{so|dll|dylib}` - High-level API
+                      - `libggufx.{so|dll|dylib}` - High-level API
                       - `libggml.{so|dll|dylib}` - Core GGML interface (macOS/iOS only)
                       - `libggml-base.{so|dll|dylib}` - Tensor operations
                       - `libggml-cpu.{so|dll|dylib}` - CPU backend
 
                       **GPU builds** (4-6 files):
-                      - Same as CPU + `libggml-{vulkan|opencl|metal|hip}.{so|dll|dylib}`
+                      - Same as CPU + `libggml-{vulkan|cuda|opencl|metal|hip}.{so|dll|dylib}`
                       - macOS Metal also includes `ggml-metal.metal` shader file
+                      - CUDA builds support architectures: Pascal (60), Turing (75), Ampere (80/86), Ada (89), Hopper (90)
 
                       ## 🔐 Verification
 
