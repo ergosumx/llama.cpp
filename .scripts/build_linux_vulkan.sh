@@ -78,13 +78,15 @@ cmake -B "$BUILD_DIR" \
     -DGGML_VULKAN=ON \
     -DGGML_VULKAN_RUN_TESTS=OFF \
     -DLLAMA_CURL=OFF \
+    -DLLAMA_BUILD_TOOLS=OFF \
     -DCMAKE_C_FLAGS="-Os" \
     -DCMAKE_CXX_FLAGS="-Os"
 
 # Build
 echo ""
 echo "Building..."
-cmake --build "$BUILD_DIR" -j$(nproc)
+# Only build the necessary libraries, not all targets
+cmake --build "$BUILD_DIR" --target llama ggml-base ggml-cpu ggml-vulkan -j$(nproc)
 
 # Strip binaries
 echo ""
