@@ -63,16 +63,19 @@ cmake -B $BuildDir `
     -DLLAMA_BUILD_TESTS=OFF `
     -DLLAMA_BUILD_EXAMPLES=OFF `
     -DLLAMA_BUILD_SERVER=OFF `
+    -DLLAMA_BUILD_TOOLS=OFF `
     -DGGML_BUILD_TESTS=OFF `
     -DGGML_BUILD_EXAMPLES=OFF `
     -DGGML_BUILD_TOOLS=OFF `
     -DGGML_VULKAN=ON `
+    -DGGML_VULKAN_RUN_TESTS=OFF `
     -DLLAMA_CURL=OFF
 
 # Build
 Write-Host ""
 Write-Host "Building..."
-cmake --build $BuildDir --config Release -j
+# Only build necessary libraries to avoid linking issues
+cmake --build $BuildDir --config Release --target llama ggml-base ggml-cpu ggml-vulkan -j
 
 # Create publish directory
 if (-not (Test-Path $PublishDir)) {

@@ -51,6 +51,34 @@ jobs:
                   path: .publish/linux-arm64/cpu/*.so
                   retention-days: 90
 
+    build-cpu-linux-arm32:
+        name: CPU - Linux ARM32 (Embedded)
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install ARM32 Toolchain
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+
+            - name: Verify Toolchain
+              run: |
+                  arm-linux-gnueabihf-gcc --version
+                  arm-linux-gnueabihf-g++ --version
+
+            - name: Build
+              run: ./.scripts/build_linux_arm32.sh
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-cpu-linux-arm32
+                  path: .publish/linux-arm32/cpu/*.so
+                  retention-days: 90
+
     build-cpu-windows-x64:
         name: CPU - Windows x64
         runs-on: windows-2022
@@ -296,6 +324,41 @@ jobs:
                   path: .publish/windows-x64/opencl/*.dll
                   retention-days: 90
 
+    build-vulkan-windows:
+        name: Vulkan - Windows x64
+        runs-on: windows-2022
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Vulkan SDK
+              uses: humbletim/setup-vulkan-sdk@v1.2.1
+              with:
+                  vulkan-query-version: '1.3.261.1'
+                  vulkan-components: Vulkan-Headers, Vulkan-Loader
+                  vulkan-use-cache: true
+
+            - name: Verify Vulkan Installation
+              run: |
+                  echo "Vulkan SDK: $env:VULKAN_SDK"
+                  if (Test-Path "$env:VULKAN_SDK\Bin\glslc.exe") {
+                      & "$env:VULKAN_SDK\Bin\glslc.exe" --version
+                  } else {
+                      echo "WARNING: glslc not found"
+                  }
+              shell: powershell
+
+            - name: Build
+              run: .\.scripts\build_windows_vulkan.ps1
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-vulkan-win-x64
+                  path: .publish/windows-x64/vulkan/*.dll
+                  retention-days: 90
+
     # ============================================================================
     # Package Universal Build (All Backends)
     # ============================================================================
@@ -384,11 +447,105 @@ jobs:
                   path: universal/
                   retention-days: 90
 
+    package-universal-linux-arm32:
+        name: Package Universal Build - Linux ARM32
+        needs:
+            - build-cpu-linux-arm32
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Download All Artifacts
+              uses: actions/download-artifact@v4
+              with:
+                  path: artifacts
+
+            - name: Create Package Structure
+              run: |
+                  mkdir -p universal/runtimes/linux-arm32/native
+
+                  # Copy CPU backend (base)
+                  cp artifacts/ggufx-cpu-linux-arm32/*.so universal/runtimes/linux-arm32/native/
+
+            - name: Show Package Contents
+              run: |
+                  ls -lh universal/runtimes/linux-arm32/native/
+                  du -sh universal/runtimes/linux-arm32/native/
+
+            - name: Create Checksums
+              run: |
+                  cd universal/runtimes/linux-arm32/native
+                  sha256sum *.so > checksums.txt
+                  cat checksums.txt
+
+            - name: Create ARM32 README
+              run: |
+                  cat > universal/runtimes/linux-arm32/README.md << 'EOF'
+                  # Linux ARM32 (Embedded) Integration
+
+                  ## Target Devices
+
+                  These libraries are built for ARM32 embedded Linux devices:
+                  - Raspberry Pi 2/3/4 (32-bit OS)
+                  - BeagleBone Black/Green
+                  - Other ARMv7-A devices with NEON support
+
+                  ## Architecture Details
+
+                  - **Architecture**: ARMv7-A
+                  - **FPU**: NEON-VFPV4
+                  - **ABI**: hard-float (armhf)
+                  - **Optimization**: Size-optimized (-Os)
+
+                  ## Installation
+
+                  1. Copy `.so` files to your embedded device:
+                     ```bash
+                     scp *.so user@device:/usr/local/lib/
+                     ```
+
+                  2. Update library cache:
+                     ```bash
+                     sudo ldconfig
+                     ```
+
+                  3. Use in your application:
+                     ```c
+                     #include "llama.h"
+                     // Link with: -lllama
+                     ```
+
+                  ## Requirements
+
+                  - Linux kernel 3.2+ (ARMv7-A)
+                  - NEON support (hardware acceleration)
+                  - Hard-float ABI
+
+                  ## Included Libraries
+
+                  - `libllama.so` - Main llama.cpp library
+                  - `libggml-cpu.so` - CPU backend with NEON optimizations
+                  - `libggml-base.so` - Base GGML library
+
+                  ## Notes
+
+                  - Optimized for embedded devices with limited resources
+                  - NEON acceleration for faster inference
+                  - Pure CPU implementation
+                  EOF
+
+            - name: Upload Universal Package
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-universal-linux-arm32
+                  path: universal/
+                  retention-days: 90
+
     package-universal-windows-x64:
         name: Package Universal Build - Windows x64
         needs:
             - build-cpu-windows-x64
             - build-opencl-windows
+            - build-vulkan-windows
         runs-on: windows-2022
 
         steps:
@@ -403,6 +560,7 @@ jobs:
                   mkdir universal\runtimes\win-x64\native
                   copy artifacts\ggufx-cpu-win-x64\*.dll universal\runtimes\win-x64\native\
                   copy artifacts\ggufx-opencl-win-x64\*.dll universal\runtimes\win-x64\native\ 2>nul || echo "OpenCL artifacts not found (optional)"
+                  copy artifacts\ggufx-vulkan-win-x64\*.dll universal\runtimes\win-x64\native\ 2>nul || echo "Vulkan artifacts not found (optional)"
 
             - name: Show Package Contents
               shell: cmd
