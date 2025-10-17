@@ -507,6 +507,7 @@ jobs:
                   retention-days: 90
 
     windows-x64-rocm:
+        if: false # Disabled due to lack of available runners with ROCm support
         name: Windows x64 - ROCm/HIP
         runs-on: windows-2022
 
@@ -588,6 +589,7 @@ jobs:
     # ============================================================================
 
     linux-x64-rocm:
+        if: false # Disabled due to lack of available runners with ROCm support
         name: Linux x64 - ROCm/HIP
         runs-on: ubuntu-22.04
         container: rocm/dev-ubuntu-22.04:6.1.2
