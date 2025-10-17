@@ -172,7 +172,7 @@ endif ()
 
 target_include_directories(${TARGET} PUBLIC . ../vendor)
 target_compile_features   (${TARGET} PUBLIC cxx_std_17)
-target_link_libraries     (${TARGET} PRIVATE ${LLAMA_COMMON_EXTRA_LIBS} PUBLIC llama Threads::Threads)
+target_link_libraries     (${TARGET} PRIVATE ${LLAMA_COMMON_EXTRA_LIBS} PUBLIC ggufx Threads::Threads)
 
 
 #
@@ -192,7 +192,7 @@ if (DEFINED ENV{GITHUB_ACTIONS} AND "$ENV{GITHUB_ACTIONS}" STREQUAL "true")
             TARGET ${TARGET}
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${LICENSE_FILE}"
-                "$<TARGET_FILE_DIR:llama>/${FILENAME}"
+                "$<TARGET_FILE_DIR:ggufx>/${FILENAME}"
             COMMENT "Copying ${FILENAME} to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
         message(STATUS "Copying ${LICENSE_FILE} to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${FILENAME}")
     endforeach()
