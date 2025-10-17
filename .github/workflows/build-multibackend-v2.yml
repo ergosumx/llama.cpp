@@ -38,6 +38,7 @@ jobs:
                   ls -lh build/bin/ || ls -lh build/src/ || ls -lh build/ggml/src/
                   find build -name "*.so" -type f
                   cp build/bin/libllama.so .publish/linux-x64/cpu/
+                  cp build/bin/libggml.so .publish/linux-x64/cpu/
                   cp build/bin/libggml-base.so .publish/linux-x64/cpu/
                   cp build/bin/libggml-cpu.so .publish/linux-x64/cpu/
                   ls -lh .publish/linux-x64/cpu/
@@ -87,6 +88,7 @@ jobs:
                   cmake --build build --config Release -j $(nproc)
                   ls -lh build/bin/
                   cp build/bin/libllama.so .publish/linux-x64/vulkan/
+                  cp build/bin/libggml.so .publish/linux-x64/vulkan/
                   cp build/bin/libggml-base.so .publish/linux-x64/vulkan/
                   cp build/bin/libggml-cpu.so .publish/linux-x64/vulkan/
                   cp build/bin/libggml-vulkan.so .publish/linux-x64/vulkan/
@@ -97,42 +99,6 @@ jobs:
               with:
                   name: ggufx-linux-x64-vulkan
                   path: .publish/linux-x64/vulkan/*.so
-                  retention-days: 90
-
-    linux-x64-opencl:
-        name: Linux x64 - OpenCL
-        runs-on: ubuntu-22.04
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Install Dependencies
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y ocl-icd-opencl-dev opencl-headers
-
-            - name: Build (Runtime Only)
-              run: |
-                  mkdir -p .publish/linux-x64/opencl
-                  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
-                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
-                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
-                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
-                      -DGGML_BUILD_TOOLS=OFF -DGGML_OPENCL=ON -DLLAMA_CURL=OFF
-                  cmake --build build --config Release -j $(nproc)
-                  ls -lh build/bin/
-                  cp build/bin/libllama.so .publish/linux-x64/opencl/
-                  cp build/bin/libggml-base.so .publish/linux-x64/opencl/
-                  cp build/bin/libggml-cpu.so .publish/linux-x64/opencl/
-                  cp build/bin/libggml-opencl.so .publish/linux-x64/opencl/
-                  ls -lh .publish/linux-x64/opencl/
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-linux-x64-opencl
-                  path: .publish/linux-x64/opencl/*.so
                   retention-days: 90
 
     # ============================================================================
@@ -158,6 +124,7 @@ jobs:
                   cmake --build build --config Release -j $(nproc)
                   ls -lh build/bin/
                   cp build/bin/libllama.so .publish/linux-arm64/cpu/
+                  cp build/bin/libggml.so .publish/linux-arm64/cpu/
                   cp build/bin/libggml-base.so .publish/linux-arm64/cpu/
                   cp build/bin/libggml-cpu.so .publish/linux-arm64/cpu/
                   ls -lh .publish/linux-arm64/cpu/
@@ -167,60 +134,6 @@ jobs:
               with:
                   name: ggufx-linux-arm64-cpu
                   path: .publish/linux-arm64/cpu/*.so
-                  retention-days: 90
-
-    # ============================================================================
-    # Linux ARM32 Build (Embedded Devices)
-    # ============================================================================
-
-    linux-arm32-cpu:
-        name: Linux ARM32 - CPU (Embedded)
-        runs-on: ubuntu-22.04
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Install ARM32 Toolchain
-              run: |
-                  sudo apt-get update
-                  sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
-
-            - name: Build (Runtime Only - Cross Compile)
-              run: |
-                  mkdir -p .publish/linux-arm32/cpu
-                  cmake -B build \
-                      -DCMAKE_SYSTEM_NAME=Linux \
-                      -DCMAKE_SYSTEM_PROCESSOR=arm \
-                      -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
-                      -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
-                      -DCMAKE_BUILD_TYPE=Release \
-                      -DBUILD_SHARED_LIBS=ON \
-                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
-                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
-                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
-                      -DGGML_BUILD_TOOLS=OFF \
-                      -DGGML_NATIVE=OFF \
-                      -DGGML_CPU_ARM_ARCH=armv7-a \
-                      -DLLAMA_CURL=OFF \
-                      -DCMAKE_C_FLAGS="-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard -Os" \
-                      -DCMAKE_CXX_FLAGS="-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard -Os"
-                  cmake --build build --config Release -j $(nproc)
-                  ls -lh build/bin/
-                  arm-linux-gnueabihf-strip --strip-unneeded build/bin/libllama.so
-                  arm-linux-gnueabihf-strip --strip-unneeded build/bin/libggml-base.so
-                  arm-linux-gnueabihf-strip --strip-unneeded build/bin/libggml-cpu.so
-                  cp build/bin/libllama.so .publish/linux-arm32/cpu/
-                  cp build/bin/libggml-base.so .publish/linux-arm32/cpu/
-                  cp build/bin/libggml-cpu.so .publish/linux-arm32/cpu/
-                  ls -lh .publish/linux-arm32/cpu/
-                  echo "Target: ARMv7-A with NEON, hard-float ABI (armhf)"
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-linux-arm32-cpu
-                  path: .publish/linux-arm32/cpu/*.so
                   retention-days: 90
 
     # ============================================================================
@@ -264,9 +177,11 @@ jobs:
                   ls -lh build/bin/ || true
                   find build -name "*.so" -type f || true
                   $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libllama.so
+                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml.so
                   $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml-base.so
                   $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml-cpu.so
                   cp build/bin/libllama.so .publish/android-arm64/cpu/
+                  cp build/bin/libggml.so .publish/android-arm64/cpu/
                   cp build/bin/libggml-base.so .publish/android-arm64/cpu/
                   cp build/bin/libggml-cpu.so .publish/android-arm64/cpu/
                   ls -lh .publish/android-arm64/cpu/
@@ -282,45 +197,6 @@ jobs:
     # ============================================================================
     # iOS ARM64 Builds
     # ============================================================================
-
-    ios-arm64-cpu:
-        name: iOS ARM64 - CPU
-        runs-on: macos-latest
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Build (Runtime Only)
-              run: |
-                  mkdir -p .publish/ios-arm64/cpu
-                  cmake -B build -G Xcode \
-                      -DCMAKE_BUILD_TYPE=Release \
-                      -DBUILD_SHARED_LIBS=ON \
-                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
-                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
-                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
-                      -DGGML_BUILD_TOOLS=OFF \
-                      -DLLAMA_CURL=OFF \
-                      -DCMAKE_SYSTEM_NAME=iOS \
-                      -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
-                      -DCMAKE_OSX_ARCHITECTURES=arm64 \
-                      -DCMAKE_XCODE_ATTRIBUTE_DEVELOPMENT_TEAM=ggml
-                  cmake --build build --config Release -j $(sysctl -n hw.logicalcpu) -- CODE_SIGNING_ALLOWED=NO
-                  ls -lh build/bin/Release/
-                  cp build/bin/Release/libllama.dylib .publish/ios-arm64/cpu/
-                  cp build/bin/Release/libggml.dylib .publish/ios-arm64/cpu/
-                  cp build/bin/Release/libggml-base.dylib .publish/ios-arm64/cpu/
-                  cp build/bin/Release/libggml-cpu.dylib .publish/ios-arm64/cpu/
-                  ls -lh .publish/ios-arm64/cpu/
-                  echo "Target: iOS ARM64 (arm64), iOS 14.0+"
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-ios-arm64-cpu
-                  path: .publish/ios-arm64/cpu/*.dylib
-                  retention-days: 90
 
     ios-arm64-metal:
         name: iOS ARM64 - Metal
@@ -390,6 +266,7 @@ jobs:
                   cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
                   Get-ChildItem build/bin/Release/
                   Copy-Item build/bin/Release/llama.dll .publish/windows-x64/cpu/
+                  Copy-Item build/bin/Release/ggml.dll .publish/windows-x64/cpu/
                   Copy-Item build/bin/Release/ggml-base.dll .publish/windows-x64/cpu/
                   Copy-Item build/bin/Release/ggml-cpu.dll .publish/windows-x64/cpu/
                   Get-ChildItem .publish/windows-x64/cpu/
@@ -445,6 +322,7 @@ jobs:
                   cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
                   Get-ChildItem build/bin/Release/
                   Copy-Item build/bin/Release/llama.dll .publish/windows-x64/vulkan/
+                  Copy-Item build/bin/Release/ggml.dll .publish/windows-x64/vulkan/
                   Copy-Item build/bin/Release/ggml-base.dll .publish/windows-x64/vulkan/
                   Copy-Item build/bin/Release/ggml-cpu.dll .publish/windows-x64/vulkan/
                   Copy-Item build/bin/Release/ggml-vulkan.dll .publish/windows-x64/vulkan/
@@ -458,56 +336,12 @@ jobs:
                   path: .publish/windows-x64/vulkan/*.dll
                   retention-days: 90
 
-    windows-x64-opencl:
-        name: Windows x64 - OpenCL
-        runs-on: windows-2022
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Install OpenCL Headers
-              run: |
-                  git clone --depth 1 https://github.com/KhronosGroup/OpenCL-Headers.git
-                  cd OpenCL-Headers
-                  cmake -B build -DCMAKE_INSTALL_PREFIX="$env:RUNNER_TEMP/opencl"
-                  cmake --build build --config Release --target install
-                  cd ..
-                  git clone --depth 1 https://github.com/KhronosGroup/OpenCL-ICD-Loader.git
-                  cd OpenCL-ICD-Loader
-                  cmake -B build -DCMAKE_PREFIX_PATH="$env:RUNNER_TEMP/opencl" -DCMAKE_INSTALL_PREFIX="$env:RUNNER_TEMP/opencl"
-                  cmake --build build --config Release --target install
-                  Add-Content $env:GITHUB_ENV "OpenCL_ROOT=$env:RUNNER_TEMP/opencl"
-              shell: powershell
-
-            - name: Build (Runtime Only)
-              run: |
-                  New-Item -ItemType Directory -Force -Path .publish/windows-x64/opencl
-                  cmake -B build -G "Visual Studio 17 2022" -A x64 `
-                      -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
-                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF `
-                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF `
-                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF `
-                      -DGGML_BUILD_TOOLS=OFF -DGGML_OPENCL=ON -DLLAMA_CURL=OFF `
-                      -DOpenCL_ROOT="$env:OpenCL_ROOT"
-                  cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
-                  Get-ChildItem build/bin/Release/
-                  Copy-Item build/bin/Release/llama.dll .publish/windows-x64/opencl/
-                  Copy-Item build/bin/Release/ggml-base.dll .publish/windows-x64/opencl/
-                  Copy-Item build/bin/Release/ggml-cpu.dll .publish/windows-x64/opencl/
-                  Copy-Item build/bin/Release/ggml-opencl.dll .publish/windows-x64/opencl/
-                  Get-ChildItem .publish/windows-x64/opencl/
-              shell: powershell
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-windows-x64-opencl
-                  path: .publish/windows-x64/opencl/*.dll
-                  retention-days: 90
+    # ============================================================================
+    # ROCm Build
+    # ============================================================================
 
     windows-x64-rocm:
-        if: false # Disabled due to lack of available runners with ROCm support
+        if: false
         name: Windows x64 - ROCm/HIP
         runs-on: windows-2022
 
@@ -584,12 +418,8 @@ jobs:
                   path: .publish/windows-x64/rocm/*.so
                   retention-days: 90
 
-    # ============================================================================
-    # Linux x64 ROCm Build
-    # ============================================================================
-
     linux-x64-rocm:
-        if: false # Disabled due to lack of available runners with ROCm support
+        if: false
         name: Linux x64 - ROCm/HIP
         runs-on: ubuntu-22.04
         container: rocm/dev-ubuntu-22.04:6.1.2
@@ -637,38 +467,6 @@ jobs:
     # macOS Builds
     # ============================================================================
 
-    macos-arm64-cpu:
-        name: macOS ARM64 - CPU
-        runs-on: macos-14
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Build (Runtime Only)
-              run: |
-                  mkdir -p .publish/macos-arm64/cpu
-                  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
-                      -DCMAKE_OSX_ARCHITECTURES=arm64 \
-                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
-                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
-                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
-                      -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
-                  cmake --build build --config Release -j $(sysctl -n hw.logicalcpu)
-                  ls -lh build/bin/
-                  cp build/bin/libllama.dylib .publish/macos-arm64/cpu/
-                  cp build/bin/libggml.dylib .publish/macos-arm64/cpu/
-                  cp build/bin/libggml-base.dylib .publish/macos-arm64/cpu/
-                  cp build/bin/libggml-cpu.dylib .publish/macos-arm64/cpu/
-                  ls -lh .publish/macos-arm64/cpu/
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-macos-arm64-cpu
-                  path: .publish/macos-arm64/cpu/*.dylib
-                  retention-days: 90
-
     macos-arm64-metal:
         name: macOS ARM64 - Metal
         runs-on: macos-14
@@ -703,38 +501,6 @@ jobs:
                   path: .publish/macos-arm64/metal/*
                   retention-days: 90
 
-    macos-x64-cpu:
-        name: macOS x64 - CPU
-        runs-on: macos-13
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
-
-            - name: Build (Runtime Only)
-              run: |
-                  mkdir -p .publish/macos-x64/cpu
-                  cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON \
-                      -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
-                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
-                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
-                      -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
-                  cmake --build build --config Release -j $(sysctl -n hw.logicalcpu)
-                  ls -lh build/bin/
-                  cp build/bin/libllama.dylib .publish/macos-x64/cpu/
-                  cp build/bin/libggml.dylib .publish/macos-x64/cpu/
-                  cp build/bin/libggml-base.dylib .publish/macos-x64/cpu/
-                  cp build/bin/libggml-cpu.dylib .publish/macos-x64/cpu/
-                  ls -lh .publish/macos-x64/cpu/
-
-            - name: Upload Artifacts
-              uses: actions/upload-artifact@v4
-              with:
-                  name: ggufx-macos-x64-cpu
-                  path: .publish/macos-x64/cpu/*.dylib
-                  retention-days: 90
-
     # ============================================================================
     # Create GitHub Release with All Artifacts
     # ============================================================================
@@ -745,20 +511,14 @@ jobs:
         needs:
             - linux-x64-cpu
             - linux-x64-vulkan
-            - linux-x64-opencl
             - linux-arm64-cpu
-            - linux-arm32-cpu
             - android-arm64-cpu
-            - ios-arm64-cpu
             - ios-arm64-metal
             - windows-x64-cpu
             - windows-x64-vulkan
-            - windows-x64-opencl
             # - windows-x64-rocm
             # - linux-x64-rocm
-            - macos-arm64-cpu
             - macos-arm64-metal
-            - macos-x64-cpu
 
         permissions:
             contents: write
@@ -818,22 +578,18 @@ jobs:
                       ### Linux
                       - ✅ x64 CPU (SIMD optimized)
                       - ✅ x64 Vulkan (GPU acceleration)
-                      - ✅ x64 OpenCL (GPU acceleration)
                       - ✅ x64 ROCm/HIP (AMD GPU)
                       - ✅ ARM64 CPU (NEON optimized)
-                      - ✅ ARM32 CPU (armhf, for Raspberry Pi)
 
                       ### Android
                       - ✅ ARM64 CPU (NEON + dotprod)
 
                       ### iOS
-                      - ✅ ARM64 CPU
                       - ✅ ARM64 Metal (GPU acceleration, shader embedded)
 
                       ### Windows
                       - ✅ x64 CPU (AVX/AVX2)
                       - ✅ x64 Vulkan (GPU acceleration)
-                      - ✅ x64 OpenCL (GPU acceleration)
                       - ✅ x64 ROCm/HIP (AMD GPU)
 
                       ### macOS
