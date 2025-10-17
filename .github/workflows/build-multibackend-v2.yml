@@ -263,7 +263,8 @@ jobs:
                       -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF `
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF `
                       -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
-                  cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
+                  cmake --build build --config Release --target ggufx -j $env:NUMBER_OF_PROCESSORS
+                  cmake --build build --config Release --target ggml -j $env:NUMBER_OF_PROCESSORS
                   Get-ChildItem build/bin/Release/
                   Copy-Item build/bin/Release/ggufx.dll .publish/windows-x64/cpu/
                   Copy-Item build/bin/Release/ggml.dll .publish/windows-x64/cpu/
@@ -319,7 +320,8 @@ jobs:
                       -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF `
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF `
                       -DGGML_BUILD_TOOLS=OFF -DGGML_VULKAN=ON -DLLAMA_CURL=OFF
-                  cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
+                  cmake --build build --config Release --target ggufx -j $env:NUMBER_OF_PROCESSORS
+                  cmake --build build --config Release --target ggml -j $env:NUMBER_OF_PROCESSORS
                   Get-ChildItem build/bin/Release/
                   Copy-Item build/bin/Release/ggufx.dll .publish/windows-x64/vulkan/
                   Copy-Item build/bin/Release/ggml.dll .publish/windows-x64/vulkan/
@@ -403,7 +405,9 @@ jobs:
                     -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF `
                     -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j ${env:NUMBER_OF_PROCESSORS}
+                  Get-ChildItem build/bin/
                   Copy-Item build/bin/libggufx.so .publish/windows-x64/rocm/
+                  Copy-Item build/bin/libggml.so .publish/windows-x64/rocm/
                   Copy-Item build/bin/libggml-base.so .publish/windows-x64/rocm/
                   Copy-Item build/bin/libggml-cpu.so .publish/windows-x64/rocm/
                   Copy-Item build/bin/libggml-hip.so .publish/windows-x64/rocm/
@@ -423,8 +427,8 @@ jobs:
 
     linux-x64-cuda:
         name: Linux x64 - CUDA 12.2
-        runs-on: ubuntu-22.04
-        container: nvidia/cuda:12.2.2-devel-ubuntu22.04
+        runs-on: ubuntu-latest
+        container: nvidia/cuda:12.2.2-devel-ubuntu24.04
 
         steps:
             - name: Checkout
@@ -437,13 +441,19 @@ jobs:
                   apt update
                   apt install -y cmake build-essential ninja-build libgomp1 git
 
+            - name: ccache
+              uses: ggml-org/ccache-action@v1.2.16
+              with:
+                  key: ubuntu-latest-cmake-cuda
+                  evict-old-files: 1d
+
             - name: Build (Runtime Only)
               run: |
                   mkdir -p .publish/linux-x64/cuda
                   cmake -S . -B build -G Ninja \
                       -DCMAKE_BUILD_TYPE=Release \
                       -DBUILD_SHARED_LIBS=ON \
-                      -DCMAKE_CUDA_ARCHITECTURES="60;61;70;75;80;86;89;90" \
+                      -DCMAKE_CUDA_ARCHITECTURES=89-real \
                       -DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined \
                       -DGGML_NATIVE=OFF \
                       -DGGML_CUDA=ON \
@@ -451,8 +461,10 @@ jobs:
                       -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
                       -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
-                  cmake --build build --config Release
+                  cmake --build build
+                  ls -lh build/bin/
                   cp build/bin/libggufx.so .publish/linux-x64/cuda/
+                  cp build/bin/libggml.so .publish/linux-x64/cuda/
                   cp build/bin/libggml-base.so .publish/linux-x64/cuda/
                   cp build/bin/libggml-cpu.so .publish/linux-x64/cuda/
                   cp build/bin/libggml-cuda.so .publish/linux-x64/cuda/
@@ -473,12 +485,18 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Install CUDA Toolkit 12.2
-              uses: Jimver/cuda-toolkit@v0.2.16
+            - name: Install ccache
+              uses: ggml-org/ccache-action@v1.2.16
+              with:
+                  key: windows-cuda-12.2
+                  variant: ccache
+                  evict-old-files: 1d
+
+            - name: Install CUDA Toolkit
+              id: cuda-toolkit
+              uses: Jimver/cuda-toolkit@v0.2.18
               with:
                   cuda: "12.2.2"
-                  method: "network"
-                  sub-packages: '["nvcc", "cudart", "cublas", "cublas_dev", "thrust", "visual_studio_integration"]'
 
             - name: Install Ninja
               run: |
@@ -494,13 +512,18 @@ jobs:
                     -DBUILD_SHARED_LIBS=ON ^
                     -DGGML_NATIVE=OFF ^
                     -DGGML_CUDA=ON ^
-                    -DCMAKE_CUDA_ARCHITECTURES="60;61;70;75;80;86;89;90" ^
+                    -DGGML_BACKEND_DL=ON ^
+                    -DGGML_CPU_ALL_VARIANTS=ON ^
                     -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF ^
                     -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF ^
                     -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF ^
                     -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
-                  cmake --build build --config Release
+                  set /A NINJA_JOBS=%NUMBER_OF_PROCESSORS%-1
+                  cmake --build build --config Release -j %NINJA_JOBS% -t ggml
+                  cmake --build build --config Release -j %NINJA_JOBS% -t ggufx
+                  dir build\bin\Release\
                   copy build\bin\Release\ggufx.dll .publish\windows-x64\cuda\
+                  copy build\bin\Release\ggml.dll .publish\windows-x64\cuda\
                   copy build\bin\Release\ggml-base.dll .publish\windows-x64\cuda\
                   copy build\bin\Release\ggml-cpu.dll .publish\windows-x64\cuda\
                   copy build\bin\Release\ggml-cuda.dll .publish\windows-x64\cuda\
@@ -548,7 +571,9 @@ jobs:
                       -DGGML_HIP_ROCWMMA_FATTN=ON \
                       -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j $(nproc)
+                  ls -lh build/bin/
                   cp build/bin/libggufx.so .publish/linux-x64/rocm/
+                  cp build/bin/libggml.so .publish/linux-x64/rocm/
                   cp build/bin/libggml-base.so .publish/linux-x64/rocm/
                   cp build/bin/libggml-cpu.so .publish/linux-x64/rocm/
                   cp build/bin/libggml-hip.so .publish/linux-x64/rocm/
@@ -712,7 +737,7 @@ jobs:
                       **GPU builds** (4-6 files):
                       - Same as CPU + `libggml-{vulkan|cuda|opencl|metal|hip}.{so|dll|dylib}`
                       - macOS Metal also includes `ggml-metal.metal` shader file
-                      - CUDA builds support architectures: Pascal (60), Turing (75), Ampere (80/86), Ada (89), Hopper (90)
+                      - CUDA builds optimized for Ada Lovelace (89) and newer architectures
 
                       ## 🔐 Verification
 
