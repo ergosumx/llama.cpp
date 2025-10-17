@@ -12,7 +12,7 @@ concurrency:
     cancel-in-progress: true
 
 env:
-    VULKAN_VERSION: 1.4.313.2
+    VULKAN_VERSION: 1.4.328.1
 
 jobs:
     # ============================================================================
@@ -211,7 +211,7 @@ jobs:
             - name: Install Vulkan SDK
               uses: ./.github/actions/install-exe
               with:
-                  url: https://sdk.lunarg.com/sdk/download/${{ env.VULKAN_VERSION }}/windows/vulkansdk-windows-x64-${{ env.VULKAN_VERSION }}.exe
+                  url: https://sdk.lunarg.com/sdk/download/${{ env.VULKAN_VERSION }}/windows/vulkansdk-windows-X64-${{ env.VULKAN_VERSION }}.exe
                   args: --accept-licenses --default-answer --confirm-command install
 
             - name: Setup Vulkan Environment
