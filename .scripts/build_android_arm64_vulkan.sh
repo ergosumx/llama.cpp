@@ -86,29 +86,16 @@ mkdir -p "$BUILD_DIR"
 # Configure CMake with Android toolchain
 cd "$PROJECT_ROOT"
 
-# Check if glslc is available (needed for shader compilation)
-if command -v glslc &> /dev/null; then
-    echo "Found glslc: $(which glslc)"
-    glslc --version
-    GLSLC_PATH=$(which glslc)
-    echo "Using system glslc for shader compilation"
-elif command -v glslangValidator &> /dev/null; then
-    echo "Found glslangValidator: $(which glslangValidator)"
-    glslangValidator --version
-    GLSLC_PATH=$(which glslangValidator)
-else
-    echo "WARNING: No shader compiler found (glslc or glslangValidator)"
-    echo "Creating dummy glslc for build process (runtime compilation will be used)..."
-
-    # Create dummy glslc as fallback
-    mkdir -p "$BUILD_DIR/dummy_tools"
-    echo '#!/bin/bash' > "$BUILD_DIR/dummy_tools/glslc"
-    echo 'exit 0' >> "$BUILD_DIR/dummy_tools/glslc"
-    chmod +x "$BUILD_DIR/dummy_tools/glslc"
-    export PATH="$BUILD_DIR/dummy_tools:$PATH"
-    GLSLC_PATH="$BUILD_DIR/dummy_tools/glslc"
-    echo "Created dummy glslc at: $GLSLC_PATH"
+# Verify glslc is available (required for shader compilation)
+if ! command -v glslc &> /dev/null; then
+    echo "ERROR: glslc not found"
+    echo "glslc is required for Vulkan shader compilation"
+    echo "Please ensure Vulkan SDK is installed with glslc"
+    exit 1
 fi
+
+echo "Found glslc: $(which glslc)"
+glslc --version
 
 cmake -B "$BUILD_DIR" \
     -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
@@ -126,8 +113,7 @@ cmake -B "$BUILD_DIR" \
     -DGGML_BUILD_TOOLS=OFF \
     -DGGML_VULKAN=ON \
     -DGGML_VULKAN_RUN_TESTS=OFF \
-    -DLLAMA_CURL=OFF \
-    -DVulkan_GLSLC_EXECUTABLE="$GLSLC_PATH"
+    -DLLAMA_CURL=OFF
 
 # Build
 echo ""

@@ -32,61 +32,30 @@ if (-not $env:VULKAN_SDK) {
 }
 Write-Host "Vulkan SDK: $env:VULKAN_SDK"
 
-# Clean previous build (do this early so we can create dummy tools in build dir)
+# Check for glslc shader compiler (required for Vulkan build)
+Write-Host "Checking for glslc shader compiler..."
+$glslcPath = Join-Path $env:VULKAN_SDK "Bin\glslc.exe"
+
+if (Test-Path $glslcPath) {
+    Write-Host "Found glslc: $glslcPath"
+    $env:PATH = "$env:VULKAN_SDK\Bin;$env:PATH"
+    & $glslcPath --version
+} else {
+    Write-Host "ERROR: glslc not found in Vulkan SDK"
+    Write-Host "Expected location: $glslcPath"
+    Write-Host "Please ensure Vulkan SDK is installed with Glslang component"
+    exit 1
+}
+
+# Clean previous build
 if (Test-Path $BuildDir) {
     Remove-Item -Recurse -Force $BuildDir
 }
-New-Item -ItemType Directory -Path $BuildDir | Out-Null
 
-# Check for shader compilers (glslc or glslangValidator)
-$glslc = Get-Command glslc -ErrorAction SilentlyContinue
-$glslangValidator = Get-Command glslangValidator -ErrorAction SilentlyContinue
-$glslcPath = Join-Path $env:VULKAN_SDK "Bin\glslc.exe"
-
-if ($glslc) {
-    Write-Host "Found glslc: $($glslc.Source)"
-} elseif ($glslangValidator) {
-    Write-Host "Found glslangValidator: $($glslangValidator.Source)"
-} elseif (Test-Path $glslcPath) {
-    Write-Host "Found glslc in Vulkan SDK: $glslcPath"
-    $env:PATH = "$env:VULKAN_SDK\Bin;$env:PATH"
-} else {
-    Write-Host "WARNING: No shader compiler found (glslc or glslangValidator)."
-    Write-Host "Creating dummy glslc for CMake (runtime compilation will be used)..."
-
-    # Create dummy glslc that CMake can find - need both .bat and .exe
-    $dummyDir = Join-Path $BuildDir "dummy_tools"
-    New-Item -ItemType Directory -Force -Path $dummyDir | Out-Null
-
-    # Create dummy glslc.exe (just copy cmd.exe as a placeholder)
-    $dummyGlslcExe = Join-Path $dummyDir "glslc.exe"
-    Copy-Item "$env:SystemRoot\System32\cmd.exe" $dummyGlslcExe -Force
-
-    # Also create glslc.bat wrapper
-    $dummyGlslcBat = Join-Path $dummyDir "glslc.bat"
-    "@echo off" | Out-File -FilePath $dummyGlslcBat -Encoding ASCII
-    "exit /b 0" | Out-File -FilePath $dummyGlslcBat -Encoding ASCII -Append
-
-    $env:PATH = "$dummyDir;$env:PATH"
-    Write-Host "Created dummy glslc at: $dummyDir"
-    Write-Host "Dummy tools:"
-    Get-ChildItem $dummyDir
-}# Configure CMake
+# Configure CMake
 Set-Location $ProjectRoot
 
-# Set Vulkan_GLSLC_EXECUTABLE to dummy if we created one
-$glslcExecutable = Get-Command glslc -ErrorAction SilentlyContinue
-if ($glslcExecutable) {
-    $VulkanGlslc = $glslcExecutable.Source
-} elseif (Test-Path "$env:VULKAN_SDK\Bin\glslc.exe") {
-    $VulkanGlslc = "$env:VULKAN_SDK\Bin\glslc.exe"
-} else {
-    # Use our dummy
-    $VulkanGlslc = Join-Path $BuildDir "dummy_tools\glslc.exe"
-}
-
-Write-Host "Using glslc: $VulkanGlslc"
-
+Write-Host "Configuring CMake..."
 cmake -B $BuildDir `
     -G "Visual Studio 17 2022" `
     -A x64 `
@@ -101,8 +70,7 @@ cmake -B $BuildDir `
     -DGGML_BUILD_TOOLS=OFF `
     -DGGML_VULKAN=ON `
     -DGGML_VULKAN_RUN_TESTS=OFF `
-    -DLLAMA_CURL=OFF `
-    -DVulkan_GLSLC_EXECUTABLE="$VulkanGlslc"
+    -DLLAMA_CURL=OFF
 
 # Build
 Write-Host ""
