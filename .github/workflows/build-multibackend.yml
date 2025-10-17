@@ -139,18 +139,28 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Install Vulkan SDK (LunarG - newer headers)
+            - name: Install Vulkan SDK (newer headers for x64)
               run: |
-                  # Add LunarG repository for newer Vulkan SDK
-                  wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
-                  sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
+                  # Install base packages from Ubuntu repos
                   sudo apt-get update
-
-                  # Install Vulkan SDK with newer headers
                   sudo apt-get install -y \
-                      vulkan-sdk \
+                      libvulkan-dev \
+                      vulkan-tools \
                       glslang-tools \
-                      spirv-tools
+                      spirv-tools \
+                      wget
+
+                  # Download and install newer Vulkan headers from Vulkan-Headers repo
+                  cd /tmp
+                  wget -q https://github.com/KhronosGroup/Vulkan-Headers/archive/refs/tags/v1.3.290.tar.gz
+                  tar -xzf v1.3.290.tar.gz
+
+                  # Replace old headers with new ones (entire include directory to get vk_video)
+                  sudo rm -rf /usr/include/vulkan /usr/include/vk_video
+                  sudo mkdir -p /usr/include
+                  sudo cp -r Vulkan-Headers-1.3.290/include/* /usr/include/
+
+                  echo "Installed Vulkan headers v1.3.290 for Linux x64"
 
             - name: Verify Vulkan Installation
               run: |
@@ -158,6 +168,8 @@ jobs:
                   dpkg -l | grep -E 'vulkan|glslang'
                   echo "Vulkan headers version:"
                   grep VK_HEADER_VERSION /usr/include/vulkan/vulkan_core.h || echo "Header not found"
+                  echo "Checking vk_video headers:"
+                  ls -la /usr/include/vk_video/ || echo "vk_video not found"
                   echo "glslc location: $(which glslc || which glslangValidator || echo 'not found')"
                   if command -v glslc &> /dev/null; then
                       glslc --version
