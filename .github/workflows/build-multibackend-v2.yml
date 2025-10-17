@@ -753,36 +753,36 @@ jobs:
             - macos-arm64-cpu
             - macos-arm64-metal
             - macos-x64-cpu
-        
+
         permissions:
             contents: write
-        
+
         steps:
             - name: Checkout
               uses: actions/checkout@v4
-            
+
             - name: Extract Version
               id: version
               run: |
                   VERSION=${GITHUB_REF#refs/tags/}
                   echo "version=${VERSION}" >> $GITHUB_OUTPUT
                   echo "Version: ${VERSION}"
-            
+
             - name: Download All Artifacts
               uses: actions/download-artifact@v4
               with:
                   path: ./artifacts
-            
+
             - name: List Downloaded Artifacts
               run: |
                   echo "=== Downloaded Artifacts ==="
                   ls -lhR ./artifacts
-            
+
             - name: Create Release Archives
               run: |
                   mkdir -p ./release
                   cd ./artifacts
-                  
+
                   # Create zip archives for each platform
                   for dir in */; do
                       platform="${dir%/}"
@@ -791,24 +791,24 @@ jobs:
                       zip -r "../../release/${platform}.zip" ./*
                       cd ..
                   done
-                  
+
                   cd ../release
                   echo "=== Release Archives ==="
                   ls -lh
                   sha256sum *.zip > checksums.txt
                   cat checksums.txt
-            
+
             - name: Create GitHub Release
               uses: softprops/action-gh-release@v1
               with:
                   name: Release ${{ steps.version.outputs.version }}
                   body: |
                       # GGUFx Multi-Backend Runtime Libraries ${{ steps.version.outputs.version }}
-                      
+
                       Pre-built runtime-only libraries for .NET interop across multiple platforms and backends.
-                      
+
                       ## 📦 Included Builds (16 platforms)
-                      
+
                       ### Linux
                       - ✅ x64 CPU (SIMD optimized)
                       - ✅ x64 Vulkan (GPU acceleration)
@@ -816,45 +816,45 @@ jobs:
                       - ✅ x64 ROCm/HIP (AMD GPU)
                       - ✅ ARM64 CPU (NEON optimized)
                       - ✅ ARM32 CPU (armhf, for Raspberry Pi)
-                      
+
                       ### Android
                       - ✅ ARM64 CPU (NEON + dotprod)
-                      
+
                       ### iOS
                       - ✅ ARM64 CPU
                       - ✅ ARM64 Metal (GPU acceleration, shader embedded)
-                      
+
                       ### Windows
                       - ✅ x64 CPU (AVX/AVX2)
                       - ✅ x64 Vulkan (GPU acceleration)
                       - ✅ x64 OpenCL (GPU acceleration)
                       - ✅ x64 ROCm/HIP (AMD GPU)
-                      
+
                       ### macOS
                       - ✅ ARM64 CPU (Apple Silicon)
                       - ✅ ARM64 Metal (GPU acceleration)
                       - ✅ x64 CPU (Intel)
-                      
+
                       ## 📚 Library Architecture
-                      
+
                       Each archive contains 3-6 shared libraries depending on the backend:
-                      
+
                       **CPU-only builds** (3-4 files):
                       - `libllama.{so|dll|dylib}` - High-level API
                       - `libggml.{so|dll|dylib}` - Core GGML interface (macOS/iOS only)
                       - `libggml-base.{so|dll|dylib}` - Tensor operations
                       - `libggml-cpu.{so|dll|dylib}` - CPU backend
-                      
+
                       **GPU builds** (4-6 files):
                       - Same as CPU + `libggml-{vulkan|opencl|metal|hip}.{so|dll|dylib}`
                       - macOS Metal also includes `ggml-metal.metal` shader file
-                      
+
                       ## 🔐 Verification
-                      
+
                       SHA256 checksums are provided in `checksums.txt`
-                      
+
                       ## 📖 Documentation
-                      
+
                       See repository for integration guides and API documentation.
                   files: |
                       ./release/*.zip
