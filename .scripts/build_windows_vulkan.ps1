@@ -32,17 +32,21 @@ if (-not $env:VULKAN_SDK) {
 }
 Write-Host "Vulkan SDK: $env:VULKAN_SDK"
 
-# Check for glslc shader compiler (required for Vulkan build)
+# Check for glslc shader compiler (can be .exe or .bat wrapper)
 Write-Host "Checking for glslc shader compiler..."
-$glslcPath = Join-Path $env:VULKAN_SDK "Bin\glslc.exe"
+$glslcExe = Join-Path $env:VULKAN_SDK "Bin\glslc.exe"
+$glslcBat = Join-Path $env:VULKAN_SDK "Bin\glslc.bat"
 
-if (Test-Path $glslcPath) {
-    Write-Host "Found glslc: $glslcPath"
+if (Test-Path $glslcExe) {
+    Write-Host "Found glslc.exe: $glslcExe"
     $env:PATH = "$env:VULKAN_SDK\Bin;$env:PATH"
-    & $glslcPath --version
+    & $glslcExe --version 2>&1 | Out-Null
+} elseif (Test-Path $glslcBat) {
+    Write-Host "Found glslc.bat wrapper: $glslcBat"
+    $env:PATH = "$env:VULKAN_SDK\Bin;$env:PATH"
 } else {
     Write-Host "ERROR: glslc not found in Vulkan SDK"
-    Write-Host "Expected location: $glslcPath"
+    Write-Host "Expected location: $glslcExe or $glslcBat"
     Write-Host "Please ensure Vulkan SDK is installed with Glslang component"
     exit 1
 }
