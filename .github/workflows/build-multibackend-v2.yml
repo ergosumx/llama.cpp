@@ -36,9 +36,9 @@ jobs:
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
                       -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
                   cmake --build build --config Release --target llama ggml-base ggml-cpu -j $(nproc)
-                  cp build/src/libllama.so .publish/linux-x64/cpu/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-base.so .publish/linux-x64/cpu/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-cpu.so .publish/linux-x64/cpu/ 2>/dev/null || true
+                  cp build/bin/libllama.so .publish/linux-x64/cpu/ 2>/dev/null || true
+                  cp build/bin/libggml-base.so .publish/linux-x64/cpu/ 2>/dev/null || true
+                  cp build/bin/libggml-cpu.so .publish/linux-x64/cpu/ 2>/dev/null || true
                   ls -lh .publish/linux-x64/cpu/
 
             - name: Upload Artifacts
@@ -84,10 +84,10 @@ jobs:
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
                       -DGGML_BUILD_TOOLS=OFF -DGGML_VULKAN=ON -DLLAMA_CURL=OFF
                   cmake --build build --config Release --target llama ggml-base ggml-cpu ggml-vulkan -j $(nproc)
-                  cp build/src/libllama.so .publish/linux-x64/vulkan/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-base.so .publish/linux-x64/vulkan/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-cpu.so .publish/linux-x64/vulkan/ 2>/dev/null || true
-                  cp build/ggml/src/ggml-vulkan/libggml-vulkan.so .publish/linux-x64/vulkan/ 2>/dev/null || true
+                  cp build/bin/libllama.so .publish/linux-x64/vulkan/ 2>/dev/null || true
+                  cp build/bin/libggml-base.so .publish/linux-x64/vulkan/ 2>/dev/null || true
+                  cp build/bin/libggml-cpu.so .publish/linux-x64/vulkan/ 2>/dev/null || true
+                  cp build/bin/libggml-vulkan.so .publish/linux-x64/vulkan/ 2>/dev/null || true
                   ls -lh .publish/linux-x64/vulkan/
 
             - name: Upload Artifacts
@@ -119,10 +119,10 @@ jobs:
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
                       -DGGML_BUILD_TOOLS=OFF -DGGML_OPENCL=ON -DLLAMA_CURL=OFF
                   cmake --build build --config Release --target llama ggml-base ggml-cpu ggml-opencl -j $(nproc)
-                  cp build/src/libllama.so .publish/linux-x64/opencl/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-base.so .publish/linux-x64/opencl/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-cpu.so .publish/linux-x64/opencl/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-opencl.so .publish/linux-x64/opencl/ 2>/dev/null || true
+                  cp build/bin/libllama.so .publish/linux-x64/opencl/ 2>/dev/null || true
+                  cp build/bin/libggml-base.so .publish/linux-x64/opencl/ 2>/dev/null || true
+                  cp build/bin/libggml-cpu.so .publish/linux-x64/opencl/ 2>/dev/null || true
+                  cp build/bin/libggml-opencl.so .publish/linux-x64/opencl/ 2>/dev/null || true
                   ls -lh .publish/linux-x64/opencl/
 
             - name: Upload Artifacts
@@ -153,9 +153,9 @@ jobs:
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
                       -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
                   cmake --build build --config Release --target llama ggml-base ggml-cpu -j $(nproc)
-                  cp build/src/libllama.so .publish/linux-arm64/cpu/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-base.so .publish/linux-arm64/cpu/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-cpu.so .publish/linux-arm64/cpu/ 2>/dev/null || true
+                  cp build/bin/libllama.so .publish/linux-arm64/cpu/ 2>/dev/null || true
+                  cp build/bin/libggml-base.so .publish/linux-arm64/cpu/ 2>/dev/null || true
+                  cp build/bin/libggml-cpu.so .publish/linux-arm64/cpu/ 2>/dev/null || true
                   ls -lh .publish/linux-arm64/cpu/
 
             - name: Upload Artifacts
@@ -163,6 +163,166 @@ jobs:
               with:
                   name: ggufx-linux-arm64-cpu
                   path: .publish/linux-arm64/cpu/*.so
+                  retention-days: 90
+
+    # ============================================================================
+    # Linux ARM32 Build (Embedded Devices)
+    # ============================================================================
+
+    linux-arm32-cpu:
+        name: Linux ARM32 - CPU (Embedded)
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Install ARM32 Toolchain
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
+
+            - name: Build (Runtime Only - Cross Compile)
+              run: |
+                  mkdir -p .publish/linux-arm32/cpu
+                  cmake -B build \
+                      -DCMAKE_SYSTEM_NAME=Linux \
+                      -DCMAKE_SYSTEM_PROCESSOR=arm \
+                      -DCMAKE_C_COMPILER=arm-linux-gnueabihf-gcc \
+                      -DCMAKE_CXX_COMPILER=arm-linux-gnueabihf-g++ \
+                      -DCMAKE_BUILD_TYPE=Release \
+                      -DBUILD_SHARED_LIBS=ON \
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
+                      -DGGML_BUILD_TOOLS=OFF \
+                      -DGGML_NATIVE=OFF \
+                      -DGGML_CPU_ARM_ARCH=armv7-a \
+                      -DLLAMA_CURL=OFF \
+                      -DCMAKE_C_FLAGS="-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard -Os" \
+                      -DCMAKE_CXX_FLAGS="-march=armv7-a -mfpu=neon-vfpv4 -mfloat-abi=hard -Os"
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu -j $(nproc)
+                  arm-linux-gnueabihf-strip --strip-unneeded build/bin/libllama.so 2>/dev/null || true
+                  arm-linux-gnueabihf-strip --strip-unneeded build/bin/libggml-base.so 2>/dev/null || true
+                  arm-linux-gnueabihf-strip --strip-unneeded build/bin/libggml-cpu.so 2>/dev/null || true
+                  cp build/bin/libllama.so .publish/linux-arm32/cpu/ 2>/dev/null || true
+                  cp build/bin/libggml-base.so .publish/linux-arm32/cpu/ 2>/dev/null || true
+                  cp build/bin/libggml-cpu.so .publish/linux-arm32/cpu/ 2>/dev/null || true
+                  ls -lh .publish/linux-arm32/cpu/
+                  echo "Target: ARMv7-A with NEON, hard-float ABI (armhf)"
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-linux-arm32-cpu
+                  path: .publish/linux-arm32/cpu/*.so
+                  retention-days: 90
+
+    # ============================================================================
+    # Android ARM64 Builds
+    # ============================================================================
+
+    android-arm64-cpu:
+        name: Android ARM64 - CPU
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Android NDK
+              uses: nttld/setup-ndk@v1
+              with:
+                  ndk-version: r26d
+                  add-to-path: true
+                  local-cache: true
+
+            - name: Build (Runtime Only - Cross Compile)
+              run: |
+                  mkdir -p .publish/android-arm64/cpu
+                  cmake -B build \
+                      -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+                      -DANDROID_ABI=arm64-v8a \
+                      -DANDROID_PLATFORM=android-28 \
+                      -DCMAKE_BUILD_TYPE=Release \
+                      -DBUILD_SHARED_LIBS=ON \
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
+                      -DGGML_BUILD_TOOLS=OFF \
+                      -DGGML_OPENMP=OFF \
+                      -DGGML_LLAMAFILE=OFF \
+                      -DLLAMA_CURL=OFF \
+                      -DCMAKE_C_FLAGS="-march=armv8.7a" \
+                      -DCMAKE_CXX_FLAGS="-march=armv8.7a"
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu -j $(nproc)
+                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libllama.so 2>/dev/null || true
+                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml-base.so 2>/dev/null || true
+                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml-cpu.so 2>/dev/null || true
+                  cp build/bin/libllama.so .publish/android-arm64/cpu/ 2>/dev/null || true
+                  cp build/bin/libggml-base.so .publish/android-arm64/cpu/ 2>/dev/null || true
+                  cp build/bin/libggml-cpu.so .publish/android-arm64/cpu/ 2>/dev/null || true
+                  ls -lh .publish/android-arm64/cpu/
+                  echo "Target: Android ARM64 (arm64-v8a), API 28+"
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-android-arm64-cpu
+                  path: .publish/android-arm64/cpu/*.so
+                  retention-days: 90
+
+    android-arm64-vulkan:
+        name: Android ARM64 - Vulkan
+        runs-on: ubuntu-22.04
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Android NDK
+              uses: nttld/setup-ndk@v1
+              with:
+                  ndk-version: r26d
+                  add-to-path: true
+                  local-cache: true
+
+            - name: Build (Runtime Only - Cross Compile)
+              run: |
+                  mkdir -p .publish/android-arm64/vulkan
+                  cmake -B build \
+                      -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+                      -DANDROID_ABI=arm64-v8a \
+                      -DANDROID_PLATFORM=android-28 \
+                      -DCMAKE_BUILD_TYPE=Release \
+                      -DBUILD_SHARED_LIBS=ON \
+                      -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF \
+                      -DLLAMA_BUILD_SERVER=OFF -DLLAMA_BUILD_TOOLS=OFF \
+                      -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
+                      -DGGML_BUILD_TOOLS=OFF \
+                      -DGGML_VULKAN=ON \
+                      -DGGML_OPENMP=OFF \
+                      -DGGML_LLAMAFILE=OFF \
+                      -DLLAMA_CURL=OFF \
+                      -DCMAKE_C_FLAGS="-march=armv8.7a" \
+                      -DCMAKE_CXX_FLAGS="-march=armv8.7a"
+                  cmake --build build --config Release --target llama ggml-base ggml-cpu ggml-vulkan -j $(nproc)
+                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libllama.so 2>/dev/null || true
+                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml-base.so 2>/dev/null || true
+                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml-cpu.so 2>/dev/null || true
+                  $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-unneeded build/bin/libggml-vulkan.so 2>/dev/null || true
+                  cp build/bin/libllama.so .publish/android-arm64/vulkan/ 2>/dev/null || true
+                  cp build/bin/libggml-base.so .publish/android-arm64/vulkan/ 2>/dev/null || true
+                  cp build/bin/libggml-cpu.so .publish/android-arm64/vulkan/ 2>/dev/null || true
+                  cp build/bin/libggml-vulkan.so .publish/android-arm64/vulkan/ 2>/dev/null || true
+                  ls -lh .publish/android-arm64/vulkan/
+                  echo "Target: Android ARM64 (arm64-v8a) with Vulkan, API 28+"
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: ggufx-android-arm64-vulkan
+                  path: .publish/android-arm64/vulkan/*.so
                   retention-days: 90
 
     # ============================================================================
@@ -324,9 +484,9 @@ jobs:
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
                       -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
                   cmake --build build --config Release --target llama ggml-base ggml-cpu -j $(sysctl -n hw.logicalcpu)
-                  cp build/src/libllama.dylib .publish/macos-arm64/cpu/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-base.dylib .publish/macos-arm64/cpu/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-cpu.dylib .publish/macos-arm64/cpu/ 2>/dev/null || true
+                  cp build/bin/libllama.dylib .publish/macos-arm64/cpu/ 2>/dev/null || true
+                  cp build/bin/libggml-base.dylib .publish/macos-arm64/cpu/ 2>/dev/null || true
+                  cp build/bin/libggml-cpu.dylib .publish/macos-arm64/cpu/ 2>/dev/null || true
                   ls -lh .publish/macos-arm64/cpu/
 
             - name: Upload Artifacts
@@ -354,11 +514,11 @@ jobs:
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
                       -DGGML_BUILD_TOOLS=OFF -DGGML_METAL=ON -DLLAMA_CURL=OFF
                   cmake --build build --config Release --target llama ggml-base ggml-cpu ggml-metal -j $(sysctl -n hw.logicalcpu)
-                  cp build/src/libllama.dylib .publish/macos-arm64/metal/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-base.dylib .publish/macos-arm64/metal/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-cpu.dylib .publish/macos-arm64/metal/ 2>/dev/null || true
-                  cp build/ggml/src/ggml-metal/libggml-metal.dylib .publish/macos-arm64/metal/ 2>/dev/null || true
-                  cp build/ggml/src/ggml-metal/ggml-metal.metal .publish/macos-arm64/metal/ 2>/dev/null || true
+                  cp build/bin/libllama.dylib .publish/macos-arm64/metal/ 2>/dev/null || true
+                  cp build/bin/libggml-base.dylib .publish/macos-arm64/metal/ 2>/dev/null || true
+                  cp build/bin/libggml-cpu.dylib .publish/macos-arm64/metal/ 2>/dev/null || true
+                  cp build/bin/libggml-metal.dylib .publish/macos-arm64/metal/ 2>/dev/null || true
+                  cp build/bin/ggml-metal.metal .publish/macos-arm64/metal/ 2>/dev/null || true
                   ls -lh .publish/macos-arm64/metal/
 
             - name: Upload Artifacts
@@ -386,9 +546,9 @@ jobs:
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF \
                       -DGGML_BUILD_TOOLS=OFF -DLLAMA_CURL=OFF
                   cmake --build build --config Release --target llama ggml-base ggml-cpu -j $(sysctl -n hw.logicalcpu)
-                  cp build/src/libllama.dylib .publish/macos-x64/cpu/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-base.dylib .publish/macos-x64/cpu/ 2>/dev/null || true
-                  cp build/ggml/src/libggml-cpu.dylib .publish/macos-x64/cpu/ 2>/dev/null || true
+                  cp build/bin/libllama.dylib .publish/macos-x64/cpu/ 2>/dev/null || true
+                  cp build/bin/libggml-base.dylib .publish/macos-x64/cpu/ 2>/dev/null || true
+                  cp build/bin/libggml-cpu.dylib .publish/macos-x64/cpu/ 2>/dev/null || true
                   ls -lh .publish/macos-x64/cpu/
 
             - name: Upload Artifacts
