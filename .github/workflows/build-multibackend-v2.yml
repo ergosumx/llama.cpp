@@ -426,9 +426,9 @@ jobs:
     # ============================================================================
 
     linux-x64-cuda:
-        name: Linux x64 - CUDA 12.2
+        name: Linux x64 - CUDA 12.6
         runs-on: ubuntu-latest
-        container: nvidia/cuda:12.2.2-devel-ubuntu24.04
+        container: nvidia/cuda:12.6.2-devel-ubuntu24.04
 
         steps:
             - name: Checkout
@@ -478,7 +478,7 @@ jobs:
                   retention-days: 90
 
     windows-x64-cuda:
-        name: Windows x64 - CUDA 12.2
+        name: Windows x64 - CUDA 12.6
         runs-on: windows-2022
 
         steps:
@@ -488,7 +488,7 @@ jobs:
             - name: Install ccache
               uses: ggml-org/ccache-action@v1.2.16
               with:
-                  key: windows-cuda-12.2
+                  key: windows-cuda-12.6
                   variant: ccache
                   evict-old-files: 1d
 
@@ -496,7 +496,7 @@ jobs:
               id: cuda-toolkit
               uses: Jimver/cuda-toolkit@v0.2.18
               with:
-                  cuda: "12.2.2"
+                  cuda: "12.6.2"
 
             - name: Install Ninja
               run: |
