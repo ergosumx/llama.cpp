@@ -53,20 +53,20 @@ if ($glslc) {
 } else {
     Write-Host "WARNING: No shader compiler found (glslc or glslangValidator)."
     Write-Host "Creating dummy glslc for CMake (runtime compilation will be used)..."
-    
+
     # Create dummy glslc that CMake can find - need both .bat and .exe
     $dummyDir = Join-Path $BuildDir "dummy_tools"
     New-Item -ItemType Directory -Force -Path $dummyDir | Out-Null
-    
+
     # Create dummy glslc.exe (just copy cmd.exe as a placeholder)
     $dummyGlslcExe = Join-Path $dummyDir "glslc.exe"
     Copy-Item "$env:SystemRoot\System32\cmd.exe" $dummyGlslcExe -Force
-    
+
     # Also create glslc.bat wrapper
     $dummyGlslcBat = Join-Path $dummyDir "glslc.bat"
     "@echo off" | Out-File -FilePath $dummyGlslcBat -Encoding ASCII
     "exit /b 0" | Out-File -FilePath $dummyGlslcBat -Encoding ASCII -Append
-    
+
     $env:PATH = "$dummyDir;$env:PATH"
     Write-Host "Created dummy glslc at: $dummyDir"
     Write-Host "Dummy tools:"

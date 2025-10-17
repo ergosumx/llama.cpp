@@ -99,7 +99,7 @@ elif command -v glslangValidator &> /dev/null; then
 else
     echo "WARNING: No shader compiler found (glslc or glslangValidator)"
     echo "Creating dummy glslc for build process (runtime compilation will be used)..."
-    
+
     # Create dummy glslc as fallback
     mkdir -p "$BUILD_DIR/dummy_tools"
     echo '#!/bin/bash' > "$BUILD_DIR/dummy_tools/glslc"
