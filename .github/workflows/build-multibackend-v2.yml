@@ -754,8 +754,8 @@ jobs:
             - windows-x64-cpu
             - windows-x64-vulkan
             - windows-x64-opencl
-            - windows-x64-rocm
-            - linux-x64-rocm
+            # - windows-x64-rocm
+            # - linux-x64-rocm
             - macos-arm64-cpu
             - macos-arm64-metal
             - macos-x64-cpu
