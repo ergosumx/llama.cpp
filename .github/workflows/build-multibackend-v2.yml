@@ -515,6 +515,7 @@ jobs:
                       -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF `
                       -DGGML_BUILD_TOOLS=OFF -DGGML_VULKAN=ON -DLLAMA_CURL=OFF
                   cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
+                  Get-ChildItem build/bin/Release/
                   Copy-Item build/bin/Release/llama.dll .publish/windows-x64/vulkan/
                   Copy-Item build/bin/Release/ggml-base.dll .publish/windows-x64/vulkan/
                   Copy-Item build/bin/Release/ggml-cpu.dll .publish/windows-x64/vulkan/
@@ -562,6 +563,7 @@ jobs:
                       -DGGML_BUILD_TOOLS=OFF -DGGML_OPENCL=ON -DLLAMA_CURL=OFF `
                       -DOpenCL_ROOT="$env:OpenCL_ROOT"
                   cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
+                  Get-ChildItem build/bin/Release/
                   Copy-Item build/bin/Release/llama.dll .publish/windows-x64/opencl/
                   Copy-Item build/bin/Release/ggml-base.dll .publish/windows-x64/opencl/
                   Copy-Item build/bin/Release/ggml-cpu.dll .publish/windows-x64/opencl/
